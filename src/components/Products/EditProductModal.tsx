@@ -1,14 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, Plus, Play, Shield, Calendar, User, FileText, Clock } from 'lucide-react';
 import { Product, QuarantineVideo } from '../../types';
 
-interface AddProductModalProps {
+interface EditProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (product: Omit<Product, 'id'>) => void;
+  onSave: (productId: string, productData: Omit<Product, 'id'>) => void;
+  product: Product | null;
 }
 
-const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSave }) => {
+const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, onSave, product }) => {
   const [formData, setFormData] = useState({
     name: '',
     breed: '',
@@ -40,36 +41,31 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
     quarantineStatus: 'healthy' as QuarantineVideo['quarantineStatus']
   });
 
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name,
+        breed: product.breed,
+        age: product.age,
+        gender: product.gender,
+        price: product.price,
+        description: product.description,
+        images: [...product.images],
+        videos: [...product.videos],
+        quarantineVideos: [...(product.quarantineVideos || [])],
+        isAvailable: product.isAvailable,
+        features: [...product.features]
+      });
+    }
+  }, [product]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
-    resetForm();
+    
+    if (!product) return;
+    
+    onSave(product.id, formData);
     onClose();
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      breed: '',
-      age: '',
-      gender: 'female',
-      price: 0,
-      description: '',
-      images: [],
-      videos: [],
-      quarantineVideos: [],
-      isAvailable: true,
-      features: []
-    });
-    setNewFeature('');
-    setQuarantineVideoData({
-      url: '',
-      title: '',
-      description: '',
-      recordedDate: '',
-      veterinarian: '',
-      quarantineStatus: 'healthy'
-    });
   };
 
   const addFeature = () => {
@@ -112,8 +108,11 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
       ...prev,
       images: prev.images.filter(image => image !== imageToRemove)
     }));
-    // Revoke the object URL to avoid memory leaks
-    URL.revokeObjectURL(imageToRemove);
+    
+    // Only revoke if it's a blob URL (local file)
+    if (imageToRemove.startsWith('blob:')) {
+      URL.revokeObjectURL(imageToRemove);
+    }
   };
 
   // Handle video file selection
@@ -139,8 +138,11 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
       ...prev,
       videos: prev.videos.filter(video => video !== videoToRemove)
     }));
-    // Revoke the object URL
-    URL.revokeObjectURL(videoToRemove);
+    
+    // Only revoke if it's a blob URL (local file)
+    if (videoToRemove.startsWith('blob:')) {
+      URL.revokeObjectURL(videoToRemove);
+    }
   };
 
   // Handle quarantine video file selection
@@ -197,7 +199,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
 
   const removeQuarantineVideo = (videoId: string) => {
     const videoToRemove = formData.quarantineVideos.find(video => video.id === videoId);
-    if (videoToRemove) {
+    if (videoToRemove && videoToRemove.url.startsWith('blob:')) {
       URL.revokeObjectURL(videoToRemove.url);
     }
     
@@ -227,13 +229,13 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
     return colorMap[status];
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !product) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-800">添加产品</h2>
+          <h2 className="text-2xl font-bold text-gray-800">编辑产品 - {product.name}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -371,7 +373,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 cursor-pointer hover:bg-gray-50 flex items-center justify-center"
               >
                 <Upload className="w-4 h-4 mr-2" />
-                选择图片文件
+                添加更多图片
               </label>
             </div>
             {formData.images.length > 0 && (
@@ -416,7 +418,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 cursor-pointer hover:bg-gray-50 flex items-center justify-center"
               >
                 <Play className="w-4 h-4 mr-2" />
-                选择视频文件
+                添加更多视频
               </label>
             </div>
             {formData.videos.length > 0 && (
@@ -424,7 +426,9 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
                 {formData.videos.map((video, index) => (
                   <div key={index} className="flex items-center bg-gray-50 rounded-lg p-3">
                     <Play className="w-5 h-5 text-green-600 mr-3" />
-                    <span className="flex-1 text-sm text-gray-700">视频 {index + 1}</span>
+                    <span className="flex-1 text-sm text-gray-700">
+                      {video.startsWith('blob:') ? `新上传视频 ${index + 1}` : video}
+                    </span>
                     <button
                       type="button"
                       onClick={() => removeVideo(video)}
@@ -669,7 +673,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
               type="submit"
               className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
             >
-              保存产品
+              保存修改
             </button>
           </div>
         </form>
@@ -678,4 +682,4 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
   );
 };
 
-export default AddProductModal;
+export default EditProductModal;

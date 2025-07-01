@@ -115,6 +115,35 @@ const SettingsView: React.FC = () => {
     { id: 'notifications', label: '通知设置', icon: Bell }
   ];
 
+  // 初始化时从localStorage读取验证码开关状态
+  useEffect(() => {
+    const storedValue = localStorage.getItem('requireVerificationCode');
+    console.log('从localStorage读取验证码状态:', storedValue);
+    if (storedValue !== null) {
+      const value = storedValue === 'true';
+      console.log('设置初始验证码状态:', value);
+      setSettings(prev => ({
+        ...prev,
+        security: {
+          ...prev.security,
+          requireVerificationCode: value
+        }
+      }));
+      // 确保系统设置同步
+      updateSystemSettings({ 
+        ...systemSettings,
+        requireVerificationCode: value 
+      });
+    } else {
+      // 如果没有存储值，使用系统默认值
+      console.log('使用系统默认验证码状态:', systemSettings.requireVerificationCode);
+      localStorage.setItem(
+        'requireVerificationCode', 
+        String(systemSettings.requireVerificationCode)
+      );
+    }
+  }, [systemSettings.requireVerificationCode]);
+
   // 同步系统设置
   useEffect(() => {
     setSettings(prev => ({
@@ -124,6 +153,8 @@ const SettingsView: React.FC = () => {
         requireVerificationCode: systemSettings.requireVerificationCode
       }
     }));
+    // 保存到localStorage
+    localStorage.setItem('requireVerificationCode', String(systemSettings.requireVerificationCode));
   }, [systemSettings]);
 
   // 同步营业时间设置
@@ -141,6 +172,9 @@ const SettingsView: React.FC = () => {
   const handleSave = async () => {
     setSaveStatus('saving');
     try {
+      // 持久化验证码设置到localStorage
+      localStorage.setItem('requireVerificationCode', String(settings.security.requireVerificationCode));
+      
       // 更新系统设置
       updateSystemSettings({
         requireVerificationCode: settings.security.requireVerificationCode,
@@ -157,7 +191,15 @@ const SettingsView: React.FC = () => {
       // 这里应该调用API保存设置到数据库
       await new Promise(resolve => setTimeout(resolve, 1000)); // 模拟API调用
       setSaveStatus('success');
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      // 确保状态持久化后再重置
+      setTimeout(() => {
+        setSaveStatus('idle');
+        // 重新读取确保一致性
+        const storedValue = localStorage.getItem('requireVerificationCode');
+        if (storedValue !== null) {
+          updateSystemSettings({ requireVerificationCode: storedValue === 'true' });
+        }
+      }, 2000);
     } catch (error) {
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -730,11 +772,19 @@ const SettingsView: React.FC = () => {
                 type="checkbox"
                 checked={settings.security.requireVerificationCode}
                 onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  console.log('验证码状态变更:', isChecked);
                   setSettings(prev => ({
                     ...prev,
-                    security: { ...prev.security, requireVerificationCode: e.target.checked }
+                    security: { ...prev.security, requireVerificationCode: isChecked }
                   }));
-                  updateSystemSettings({ requireVerificationCode: e.target.checked });
+                  // 立即更新系统设置和localStorage
+                  updateSystemSettings({ 
+                    ...systemSettings,
+                    requireVerificationCode: isChecked 
+                  });
+                  localStorage.setItem('requireVerificationCode', String(isChecked));
+                  console.log('状态已保存到localStorage');
                 }}
                 className="sr-only peer"
               />

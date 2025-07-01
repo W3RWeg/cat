@@ -1,0 +1,14 @@
+2025-07-01 09:20:50.445 CST [17944] LOG:  starting PostgreSQL 17.5 on x86_64-windows, compiled by msvc-19.44.35209, 64-bit
+2025-07-01 09:20:50.448 CST [17944] LOG:  listening on IPv6 address "::1", port 5432
+2025-07-01 09:20:50.448 CST [17944] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2025-07-01 09:20:50.472 CST [32388] LOG:  database system was shut down at 2025-07-01 09:20:39 CST
+2025-07-01 09:20:50.482 CST [17944] LOG:  database system is ready to accept connections
+2025-07-01 09:21:06.748 CST [33896] FATAL:  role "postgres" does not exist
+2025-07-01 09:21:42.196 CST [17944] LOG:  received fast shutdown request
+2025-07-01 09:21:42.201 CST [17944] LOG:  aborting any active transactions
+2025-07-01 09:21:42.201 CST [30332] FATAL:  terminating connection due to administrator command
+2025-07-01 09:21:42.204 CST [17944] LOG:  background worker "logical replication launcher" (PID 33960) exited with exit code 1
+2025-07-01 09:21:42.205 CST [11216] LOG:  shutting down
+2025-07-01 09:21:42.207 CST [11216] LOG:  checkpoint starting: shutdown immediate
+2025-07-01 09:21:42.232 CST [11216] LOG:  checkpoint complete: wrote 7 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.013 s, total=0.028 s; sync files=6, longest=0.003 s, average=0.003 s; distance=3 kB, estimate=3 kB; lsn=0/1573088, redo lsn=0/1573088
+2025-07-01 09:21:42.237 CST [17944] LOG:  database system is shut down
