@@ -6,6 +6,26 @@ export interface User {
   name: string;
   isActive: boolean;
   createdAt: string;
+  teamId?: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SalesPerformance {
+  date: string;
+  salesId: string;
+  salesName: string;
+  teamId?: string;
+  teamName?: string;
+  traffic: number;
+  orders: number;
+  revenue: number;
 }
 
 export interface Customer {
@@ -16,12 +36,82 @@ export interface Customer {
   wechat: string;
   address: string;
   occupation: string;
+  customerType?: 'retail' | 'installment';
+  
+  // 零售客户特有字段
+  orderDate?: string;
+  salesPerson?: string;
+  catName?: string;
+  catBirthday?: string;
+  isMallMember?: boolean;
+  catBreed?: string;
+  catGender?: 'male' | 'female';
+  supplyChain?: string;
+  supplyChainDeposit?: number;
+  totalAmount?: number;
+  paymentMethod?: 'full_payment' | 'shipping_balance' | 'cash_on_delivery';
+  customerDeposit?: number;
+  depositDestination?: string;
+  shippingDate?: string;
+  shippingVideoUrl?: string;
+  balance?: number;
+  balancePaid?: boolean;
+  balanceConfirmMethod?: string;
+  sellingPrice?: number;
+  cost?: number;
+  shippingFee?: number;
+  profit?: number;
+  profitRate?: number;
+  
+  // 分期客户特有字段
+  contractName?: string;
+  relationship?: string;
+  isInGroup?: boolean;
+  repaymentDate?: string;
+  installmentPeriod?: string;
+  catCost?: number;
+  collectionAmount?: number;
+  fundsDestination?: string;
+  installmentAmount?: number;
+  installmentCount?: number;
+  signingMethod?: string;
+  isFirstPaymentManual?: boolean;
+  hasESignContract?: boolean;
+  contractTotalPrice?: number;
+  mallGrossProfit?: number;
+  grossProfit?: number;
+  monthlyProfit?: number;
+  breakEvenPeriod?: number;
+  
+  // 分期还款记录
+  installmentPayments?: InstallmentPayment[];
+  
+  // 通用字段
   tags: string[];
   notes: string;
   createdAt: string;
-  assignedSales: string;
   files: CustomerFile[];
   orders: Order[];
+  assignedSales: string;
+}
+
+// 分期还款记录
+export interface InstallmentPayment {
+  id: string;
+  installmentNumber: number;
+  amount: number;
+  dueDate: string;
+  paidDate?: string;
+  status: 'pending' | 'paid' | 'overdue';
+  notes?: string;
+}
+
+// 还款状态
+export interface PaymentStatus {
+  status: 'normal' | 'reminder' | 'overdue';
+  overdueCount?: number;
+  nextDueDate?: string;
+  message: string;
 }
 
 export interface CustomerFile {
@@ -194,6 +284,17 @@ export interface ChartData {
   name: string;
   value: number;
   color?: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  visible_to: 'sales' | 'after_sales' | 'all';
+  priority: 'normal' | 'important' | 'urgent';
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AuthState {

@@ -1,21 +1,84 @@
 import React from 'react';
-import { Users, ShoppingBag, DollarSign, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, AlertTriangle, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import StatsCard from './StatsCard';
-import { useCustomers, useOrders, useProducts } from '../../hooks/useDatabase';
+import CustomerRegionStats from './CustomerMap';
+import { useCustomers } from '../../hooks/useDatabase';
+import { useAuth } from '../../context/AuthContext';
+import { Customer, PaymentStatus } from '../../types';
+
+// 计算还款状态
+const calculatePaymentStatus = (customer: Customer): PaymentStatus => {
+  if (customer.customerType !== 'installment' || !customer.installmentPayments) {
+    return { status: 'normal', message: '正常' };
+  }
+
+  const today = new Date();
+  const overduePayments = customer.installmentPayments.filter(payment => {
+    if (payment.isPaid) return false;
+    const dueDate = new Date(payment.dueDate);
+    return dueDate < today;
+  });
+
+  if (overduePayments.length > 0) {
+    return {
+      status: 'overdue',
+      overdueCount: overduePayments.length,
+      message: `逾期 ${overduePayments.length} 期`
+    };
+  }
+
+  // 检查是否有3天内到期的还款
+  const upcomingPayments = customer.installmentPayments.filter(payment => {
+    if (payment.isPaid) return false;
+    const dueDate = new Date(payment.dueDate);
+    const threeDaysLater = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
+    return dueDate >= today && dueDate <= threeDaysLater;
+  });
+
+  if (upcomingPayments.length > 0) {
+    return {
+      status: 'reminder',
+      nextDueDate: upcomingPayments[0].dueDate,
+      message: '待催款'
+    };
+  }
+
+  return { status: 'normal', message: '还款正常' };
+};
 
 const DashboardView: React.FC = () => {
+  const { user } = useAuth();
   const { customers = [], loading: customersLoading, error: customersError } = useCustomers();
-  const { orders = [], loading: ordersLoading, error: ordersError } = useOrders();
-  const { products = [], loading: productsLoading, error: productsError } = useProducts();
+  const [overdueReminders, setOverdueReminders] = React.useState<Array<{
+    id: string;
+    customer: Customer;
+    status: PaymentStatus;
+  }>>([]);
 
-  const loading = customersLoading || ordersLoading || productsLoading;
-  const hasErrors = customersError || ordersError || productsError;
+  const loading = customersLoading;
+  const hasErrors = customersError;
 
   // 安全的数组操作
   const safeCustomers = customers || [];
-  const safeOrders = orders || [];
-  const safeProducts = products || [];
+
+  // 计算逾期提醒列表
+  React.useEffect(() => {
+    const reminders = safeCustomers
+      .filter(customer => customer.customerType === 'installment')
+      .map(customer => ({
+        id: customer.id,
+        customer,
+        status: calculatePaymentStatus(customer)
+      }))
+      .filter(item => item.status.status !== 'normal');
+    
+    setOverdueReminders(reminders);
+  }, [safeCustomers]);
+
+  const handleDeleteReminder = (reminderId: string) => {
+    setOverdueReminders(prev => prev.filter(item => item.id !== reminderId));
+  };
 
   if (loading) {
     return (
@@ -29,48 +92,17 @@ const DashboardView: React.FC = () => {
   }
 
   // 计算统计数据
-  const totalRevenue = safeOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
-  const completedOrders = safeOrders.filter(order => order.status === 'completed');
-  const pendingPayments = safeOrders.filter(order => 
-    order.status === 'pending_payment' || 
-    (order.paymentMethod === 'installment' && order.installmentPlan && 
-     (order.installmentPlan.paidInstallments || 0) < (order.installmentPlan.totalInstallments || 0))
-  ).length;
-
-  // 计算逾期付款
-  const overduePayments = safeOrders.filter(order => {
-    if (order.paymentMethod === 'installment' && order.installmentPlan) {
-      return (order.installmentPlan.payments || []).some(payment => 
-        payment.status === 'overdue' || 
-        (payment.status === 'pending' && new Date(payment.dueDate) < new Date())
-      );
-    }
-    return false;
-  }).length;
+  const totalRevenue = 0;
 
   // 计算月度增长率
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
   const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-  const currentMonthRevenue = safeOrders
-    .filter(order => {
-      const orderDate = new Date(order.orderDate);
-      return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
-    })
-    .reduce((sum, order) => sum + (order.amount || 0), 0);
-
-  const lastMonthRevenue = safeOrders
-    .filter(order => {
-      const orderDate = new Date(order.orderDate);
-      return orderDate.getMonth() === lastMonth && orderDate.getFullYear() === lastMonthYear;
-    })
-    .reduce((sum, order) => sum + (order.amount || 0), 0);
-
-  const monthlyGrowth = lastMonthRevenue > 0 
-    ? ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 
-    : 0;
+  
+  const currentMonthRevenue = 0;
+  const lastMonthRevenue = 0;
+  const monthlyGrowth = 0;
 
   // 生成销售趋势数据（最近6个月）
   const salesData = [];
@@ -79,107 +111,40 @@ const DashboardView: React.FC = () => {
     date.setMonth(date.getMonth() - i);
     const month = date.getMonth();
     const year = date.getFullYear();
-    
-    const monthOrders = safeOrders.filter(order => {
-      const orderDate = new Date(order.orderDate);
-      return orderDate.getMonth() === month && orderDate.getFullYear() === year;
-    });
-    
-    const monthRevenue = monthOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
-    
+
+    // 模拟数据
+    const monthRevenue = Math.floor(Math.random() * 500000) + 100000;
+    const monthOrders = Math.floor(Math.random() * 20) + 5;
+
     salesData.push({
       name: `${month + 1}月`,
       sales: monthRevenue,
-      orders: monthOrders.length
+      orders: monthOrders
     });
   }
 
-  // 品种销售分布
-  const breedStats = safeProducts.reduce((acc, product) => {
-    const orderCount = safeOrders.filter(order => 
-      (order.products || []).some(p => p.id === product.id)
-    ).length;
-    
-    if (acc[product.breed]) {
-      acc[product.breed] += orderCount;
-    } else {
-      acc[product.breed] = orderCount;
-    }
-    return acc;
-  }, {} as Record<string, number>);
+  // 模拟品种销售分布数据
+  const breedData = [
+    { name: '英国短毛猫', value: 35, color: '#3B82F6' },
+    { name: '布偶猫', value: 25, color: '#10B981' },
+    { name: '波斯猫', value: 20, color: '#F59E0B' },
+    { name: '暹罗猫', value: 15, color: '#EF4444' },
+    { name: '美国短毛猫', value: 5, color: '#8B5CF6' }
+  ];
 
-  const totalBreedOrders = Object.values(breedStats).reduce((sum, count) => sum + count, 0);
-  
-  const breedData = Object.entries(breedStats)
-    .map(([breed, count], index) => ({
-      name: breed,
-      value: totalBreedOrders > 0 ? Math.round((count / totalBreedOrders) * 100) : 0,
-      color: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][index % 5]
-    }))
-    .filter(item => item.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
-
-  // 付款方式分布
-  const fullPaymentCount = safeOrders.filter(order => order.paymentMethod === 'full').length;
-  const installmentCount = safeOrders.filter(order => order.paymentMethod === 'installment').length;
-  const totalOrders = safeOrders.length;
-
+  // 模拟付款方式分布
   const paymentMethodData = [
     {
       name: '全款',
-      value: totalOrders > 0 ? Math.round((fullPaymentCount / totalOrders) * 100) : 0,
+      value: 65,
       color: '#3B82F6'
     },
     {
       name: '分期',
-      value: totalOrders > 0 ? Math.round((installmentCount / totalOrders) * 100) : 0,
+      value: 35,
       color: '#10B981'
     }
-  ].filter(item => item.value > 0);
-
-  // 最近活动数据
-  const recentActivities = [
-    ...safeCustomers.slice(0, 2).map(customer => ({
-      type: 'customer',
-      title: '新客户注册',
-      description: `${customer.name} 刚刚注册`,
-      time: new Date(customer.createdAt).getTime(),
-      color: 'blue'
-    })),
-    ...safeOrders.slice(0, 2).map(order => ({
-      type: 'order',
-      title: order.status === 'completed' ? '订单完成' : '新订单',
-      description: `订单 ${order.orderNumber} ${order.status === 'completed' ? '已完成' : '已创建'}`,
-      time: new Date(order.orderDate).getTime(),
-      color: order.status === 'completed' ? 'green' : 'blue'
-    })),
-    ...safeOrders
-      .filter(order => order.paymentMethod === 'installment' && order.installmentPlan)
-      .slice(0, 1)
-      .map(order => ({
-        type: 'payment',
-        title: '付款提醒',
-        description: `${safeCustomers.find(c => c.id === order.customerId)?.name || '客户'}的分期付款到期`,
-        time: new Date(order.installmentPlan!.nextPaymentDate).getTime(),
-        color: 'yellow'
-      }))
-  ]
-  .sort((a, b) => b.time - a.time)
-  .slice(0, 3);
-
-  const getActivityTimeText = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days > 0) return `${days}天前`;
-    if (hours > 0) return `${hours}小时前`;
-    if (minutes > 0) return `${minutes}分钟前`;
-    return '刚刚';
-  };
+  ];
 
   return (
     <div className="space-y-6">
@@ -194,6 +159,59 @@ const DashboardView: React.FC = () => {
                 部分数据可能无法正常加载，显示的是模拟数据。请检查网络连接或联系管理员。
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 逾期提醒列表 - 仅管理员可见，移到顶部 */}
+      {user?.role === 'admin' && overdueReminders.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">逾期提醒</h3>
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {overdueReminders.map((item) => (
+              <div
+                key={item.id}
+                className={`p-3 rounded-lg border ${
+                  item.status.status === 'overdue'
+                    ? 'bg-red-50 border-red-200'
+                    : 'bg-yellow-50 border-yellow-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-900">
+                        {item.customer.name}
+                      </span>
+                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
+                        item.status.status === 'overdue'
+                          ? 'bg-red-100 text-red-600'
+                          : 'bg-yellow-100 text-yellow-600'
+                      }`}>
+                        {item.status.message}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {item.customer.phone}
+                    </div>
+                    {item.status.nextDueDate && (
+                      <div className="text-xs text-gray-500">
+                        下次还款: {new Date(item.status.nextDueDate).toLocaleDateString('zh-CN')}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-1 ml-2">
+                    <button
+                      onClick={() => handleDeleteReminder(item.id)}
+                      className="p-1 text-red-600 hover:bg-red-100 rounded"
+                      title="移除提醒"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -213,18 +231,6 @@ const DashboardView: React.FC = () => {
           color="blue"
         />
         <StatsCard
-          title="总订单数"
-          value={safeOrders.length}
-          change={safeOrders.filter(o => {
-            const orderDate = new Date(o.orderDate);
-            const now = new Date();
-            return orderDate.getMonth() === now.getMonth() && 
-                   orderDate.getFullYear() === now.getFullYear();
-          }).length > 0 ? 8.3 : 0}
-          icon={ShoppingBag}
-          color="green"
-        />
-        <StatsCard
           title="总营收"
           value={`¥${(totalRevenue / 10000).toFixed(1)}万`}
           change={monthlyGrowth}
@@ -237,22 +243,18 @@ const DashboardView: React.FC = () => {
           icon={TrendingUp}
           color="green"
         />
-        <StatsCard
-          title="待付款"
-          value={pendingPayments}
-          icon={Clock}
-          color="yellow"
-        />
-        <StatsCard
-          title="逾期付款"
-          value={overduePayments}
-          icon={AlertTriangle}
-          color="red"
-        />
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
+        {/* Customer Region Statistics */}
+        <div>
+          <CustomerRegionStats customers={safeCustomers} />
+        </div>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sales Trend */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">销售趋势</h3>
@@ -363,37 +365,6 @@ const DashboardView: React.FC = () => {
               <p>暂无订单数据</p>
             </div>
           )}
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">最近活动</h3>
-          <div className="space-y-4">
-            {recentActivities.length > 0 ? (
-              recentActivities.map((activity, index) => (
-                <div key={index} className={`flex items-center p-3 rounded-lg ${
-                  activity.color === 'blue' ? 'bg-blue-50' :
-                  activity.color === 'green' ? 'bg-green-50' :
-                  'bg-yellow-50'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full mr-3 ${
-                    activity.color === 'blue' ? 'bg-blue-500' :
-                    activity.color === 'green' ? 'bg-green-500' :
-                    'bg-yellow-500'
-                  }`} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-800">{activity.title}</p>
-                    <p className="text-xs text-gray-600">{activity.description}</p>
-                  </div>
-                  <span className="text-xs text-gray-500">{getActivityTimeText(activity.time)}</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p>暂无最近活动</p>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

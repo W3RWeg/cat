@@ -1,30 +1,41 @@
 import React, { useState } from 'react';
-import { Plus, Filter, Download, AlertTriangle } from 'lucide-react';
+import { Plus, Filter, Download, AlertTriangle, Search } from 'lucide-react';
 import CustomerCard from './CustomerCard';
 import CustomerDetail from './CustomerDetail';
 import AddCustomerModal from './AddCustomerModal';
 import EditCustomerModal from './EditCustomerModal';
-import { useCustomers } from '../../hooks/useDatabase';
-import { Customer } from '../../types';
+import { useCustomers, useCustomerFiles, SALES_STAFF } from '../../hooks/useDatabase';
+import { Customer, CustomerFile } from '../../types';
 
 const CustomersView: React.FC = () => {
   const { customers, loading, error, addCustomer, updateCustomer, deleteCustomer } = useCustomers();
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [filterTag, setFilterTag] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
-  // 确保customers是数组，如果为undefined则使用空数组
-  const safeCustomers = customers || [];
+  // 安全的数组操作
+  const safeCustomers = Array.isArray(customers) ? customers : [];
   
   const allTags = ['all', ...Array.from(new Set(safeCustomers.flatMap(c => c.tags || [])))];
 
-  const filteredCustomers = filterTag === 'all' 
-    ? safeCustomers 
-    : safeCustomers.filter(c => (c.tags || []).includes(filterTag));
+  const filteredCustomers = safeCustomers.filter(c => {
+    const matchesTag = filterTag === 'all' || (c.tags || []).includes(filterTag);
+    
+    const matchesSearch = searchTerm === '' || 
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.wechat?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.occupation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesTag && matchesSearch;
+  });
 
   const handleAddCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt' | 'files' | 'orders'>) => {
     try {
@@ -67,6 +78,23 @@ const CustomersView: React.FC = () => {
       } catch (error) {
         console.error('Failed to delete customer:', error);
       }
+    }
+  };
+
+  const handleAddCustomerFile = async (customerId: string, fileData: Omit<CustomerFile, 'id' | 'uploadedAt'>) => {
+    try {
+      const newFile = await addCustomerFile(customerId, fileData);
+      
+      // 更新选中的客户，以便立即显示新文件
+      if (selectedCustomer && selectedCustomer.id === customerId) {
+        setSelectedCustomer({
+          ...selectedCustomer,
+          files: [...selectedCustomer.files, newFile]
+        });
+      }
+    } catch (error) {
+      console.error('Failed to add customer file:', error);
+      alert('添加文件失败，请重试');
     }
   };
 
@@ -145,7 +173,17 @@ const CustomersView: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-4">
-          <div className="flex items-center">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="搜索客户姓名、电话..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+            />
+          </div>
+          <div className="relative">
             <Filter className="w-4 h-4 mr-2 text-gray-500" />
             <select
               value={filterTag}
@@ -177,18 +215,6 @@ const CustomersView: React.FC = () => {
               return createdDate.getMonth() === now.getMonth() && 
                      createdDate.getFullYear() === now.getFullYear();
             }).length}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <p className="text-sm text-gray-600">活跃客户</p>
-          <p className="text-2xl font-bold text-blue-600">
-            {safeCustomers.filter(c => (c.orders || []).length > 0).length}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <p className="text-sm text-gray-600">转化率</p>
-          <p className="text-2xl font-bold text-purple-600">
-            {safeCustomers.length > 0 ? Math.round((safeCustomers.filter(c => (c.orders || []).length > 0).length / safeCustomers.length) * 100) : 0}%
           </p>
         </div>
       </div>
@@ -229,6 +255,7 @@ const CustomersView: React.FC = () => {
         <CustomerDetail
           customer={selectedCustomer}
           onClose={() => setSelectedCustomer(null)}
+          onAddFile={handleAddCustomerFile}
         />
       )}
 
@@ -242,6 +269,7 @@ const CustomersView: React.FC = () => {
       {/* Edit Customer Modal */}
       <EditCustomerModal
         isOpen={showEditModal}
+        onAddFile={handleAddCustomerFile}
         onClose={() => {
           setShowEditModal(false);
           setEditingCustomer(null);
@@ -279,13 +307,13 @@ const CustomersView: React.FC = () => {
                   setShowDeleteConfirm(false);
                   setCustomerToDelete(null);
                 }}
-                className="flex-1 border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 取消
               </button>
               <button
                 onClick={confirmDeleteCustomer}
-                className="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
                 确认删除
               </button>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Customer, Order, Product, KnowledgeBase, AttendanceRecord, AfterSalesRecord, ServiceTemplate, CustomerFeedback, QuarantineVideo } from '../types';
+import { Customer, Order, Product, KnowledgeBase, AttendanceRecord, AfterSalesRecord, ServiceTemplate, CustomerFeedback, QuarantineVideo, CustomerFile, SalesPerformance } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { calculateAttendanceStatus } from '../utils/attendanceUtils';
 
@@ -18,16 +18,38 @@ export const SALES_STAFF = [
 ];
 
 // 模拟客户数据 - 确保在整个应用中保持一致
-const mockCustomers: Customer[] = [
+const generateMockCustomers = (): Customer[] => [
   {
     id: '1',
     name: '张小美',
     gender: 'female',
     phone: '13800138001',
     wechat: 'zhang_xiaomei',
-    
+    customerType: 'retail',
     address: '北京市朝阳区三里屯路123号',
     occupation: 'UI设计师',
+    orderDate: '2024-01-10',
+    salesPerson: 'Alice Chen',
+    catName: '小银',
+    catBirthday: '2023-10-15',
+    isMallMember: true,
+    catBreed: '英国短毛猫',
+    catGender: 'female',
+    supplyChain: '北京猫舍',
+    supplyChainDeposit: 2000,
+    totalAmount: 8800,
+    paymentMethod: 'full_payment',
+    customerDeposit: 1000,
+    depositDestination: '支付宝',
+    shippingDate: '2024-01-20',
+    balance: 0,
+    balancePaid: true,
+    balanceConfirmMethod: '微信转账',
+    sellingPrice: 8800,
+    cost: 5000,
+    shippingFee: 200,
+    profit: 3600,
+    profitRate: 40.9,
     tags: ['高意向', '英短爱好者', '预算充足'],
     notes: '很喜欢银渐层，已看过多只猫咪，计划本月内购买',
     createdAt: '2024-01-15',
@@ -41,8 +63,89 @@ const mockCustomers: Customer[] = [
     gender: 'male',
     phone: '13900139002',
     wechat: 'li_mister',
+    customerType: 'installment',
     address: '上海市浦东新区世纪大道456号',
     occupation: '软件工程师',
+    orderDate: '2024-02-01',
+    salesPerson: 'Alice Chen',
+    catName: '布丁',
+    contractName: '李明',
+    relationship: '本人',
+    catBreed: '布偶猫',
+    catGender: 'male',
+    isInGroup: true,
+    catBirthday: '2023-11-20',
+    supplyChain: '上海宠物基地',
+    repaymentDate: '2024-02-15',
+    installmentPeriod: '2024年2月-2024年7月',
+    catCost: 8000,
+    collectionAmount: 12000,
+    fundsDestination: '银行卡',
+    installmentAmount: 2000,
+    installmentCount: 6,
+    signingMethod: '线上签约',
+    isFirstPaymentManual: false,
+    hasESignContract: true,
+    contractTotalPrice: 12000,
+    mallGrossProfit: 2000,
+    cost: 8000,
+    grossProfit: 4000,
+    profitRate: 33.3,
+    monthlyProfit: 667,
+    breakEvenPeriod: 12,
+    installmentPayments: [
+      {
+        id: 'payment-1',
+        installmentNumber: 1,
+        amount: 2000,
+        dueDate: '2024-02-15',
+        paidDate: '2024-02-15',
+        isPaid: true,
+        isOverdue: false
+      },
+      {
+        id: 'payment-2',
+        installmentNumber: 2,
+        amount: 2000,
+        dueDate: '2024-03-15',
+        paidDate: '2024-03-14',
+        isPaid: true,
+        isOverdue: false
+      },
+      {
+        id: 'payment-3',
+        installmentNumber: 3,
+        amount: 2000,
+        dueDate: '2024-04-15',
+        isPaid: false,
+        isOverdue: true,
+        overdueCount: 15
+      },
+      {
+        id: 'payment-4',
+        installmentNumber: 4,
+        amount: 2000,
+        dueDate: '2024-05-15',
+        isPaid: false,
+        isOverdue: false
+      },
+      {
+        id: 'payment-5',
+        installmentNumber: 5,
+        amount: 2000,
+        dueDate: '2024-06-15',
+        isPaid: false,
+        isOverdue: false
+      },
+      {
+        id: 'payment-6',
+        installmentNumber: 6,
+        amount: 2000,
+        dueDate: '2024-07-15',
+        isPaid: false,
+        isOverdue: false
+      }
+    ],
     tags: ['分期付款', '布偶猫', '首次购买'],
     notes: '选择分期付款，工作稳定，收入可观，对布偶猫很感兴趣',
     createdAt: '2024-02-01',
@@ -56,8 +159,31 @@ const mockCustomers: Customer[] = [
     gender: 'female',
     phone: '13700137003',
     wechat: 'wang_lady',
+    customerType: 'retail',
     address: '广州市天河区珠江新城789号',
     occupation: '市场经理',
+    orderDate: '2024-02-15',
+    salesPerson: 'Bob Wang',
+    catName: '波波',
+    catBirthday: '2023-12-01',
+    isMallMember: false,
+    catBreed: '波斯猫',
+    catGender: 'female',
+    supplyChain: '广州名猫坊',
+    supplyChainDeposit: 3000,
+    totalAmount: 15000,
+    paymentMethod: 'shipping_balance',
+    customerDeposit: 5000,
+    depositDestination: '微信支付',
+    shippingDate: '2024-03-01',
+    balance: 10000,
+    balancePaid: true,
+    balanceConfirmMethod: '银行转账',
+    sellingPrice: 15000,
+    cost: 10000,
+    shippingFee: 300,
+    profit: 4700,
+    profitRate: 31.3,
     tags: ['高端客户', '波斯猫', '多只购买'],
     notes: '有养猫经验，希望购买2-3只高品质波斯猫',
     createdAt: '2024-02-15',
@@ -1005,14 +1131,145 @@ const mockServiceTemplates: ServiceTemplate[] = [
   }
 ];
 
+// 模拟销售业绩数据
+const generateSalesPerformanceData = (users: User[]): SalesPerformance[] => {
+  const performances: SalesPerformance[] = [];
+  const salesStaff = users.filter(user => user.role === 'sales');
+  
+  // 生成过去90天的数据
+  for (let i = 90; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateString = date.toISOString().split('T')[0];
+    
+    salesStaff.forEach(staff => {
+      // 根据销售员ID和日期生成一个伪随机数，确保相同的销售员在相同的日期有相同的数据
+      const seed = staff.id.charCodeAt(0) + date.getDate() + date.getMonth();
+      const randomFactor = Math.sin(seed) * 0.5 + 0.5; // 0-1之间的伪随机数
+      
+      // 生成业绩数据
+      const traffic = Math.floor(10 + randomFactor * 40); // 10-50之间
+      const orders = Math.floor(randomFactor * traffic * 0.3); // 转化率约30%
+      const avgOrderValue = 5000 + randomFactor * 15000; // 5000-20000之间
+      const revenue = orders * avgOrderValue;
+      
+      performances.push({
+        date: dateString,
+        salesId: staff.id,
+        salesName: staff.name,
+        teamId: staff.teamId,
+        teamName: staff.teamId === 'team-1' ? '销售一组' : staff.teamId === 'team-2' ? '销售二组' : undefined,
+        traffic,
+        orders,
+        revenue
+      });
+    });
+  }
+  
+  return performances;
+};
+
+// 延迟初始化销售业绩数据
+let globalSalesPerformance: SalesPerformance[] = [];
+
 // 全局状态管理 - 确保数据一致性
-let globalCustomers = [...mockCustomers];
+let globalCustomers = generateMockCustomers();
 let globalProducts = [...mockProducts];
 let globalOrders = [...mockOrders];
 let globalKnowledgeBase: KnowledgeBase[] = [];
 let globalAttendanceRecords: AttendanceRecord[] = [];
 let globalAfterSalesRecords = [...mockAfterSalesRecords];
 let globalServiceTemplates = [...mockServiceTemplates];
+let globalAnnouncements: Announcement[] = [
+  {
+    id: '1',
+    title: '系统更新通知',
+    content: '系统将于本周六凌晨2点-4点进行例行维护，期间系统将暂停使用。请各位同事提前做好工作安排。',
+    visible_to: 'all',
+    priority: 'important',
+    created_by: '00000000-0000-0000-0000-000000000001',
+    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: '2',
+    title: '销售人员培训通知',
+    content: '下周三下午2点将在会议室举行新品种介绍培训，请所有销售人员准时参加。',
+    visible_to: 'sales',
+    priority: 'normal',
+    created_by: '00000000-0000-0000-0000-000000000001',
+    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: '3',
+    title: '售后服务流程更新',
+    content: '售后服务流程已更新，请所有售后专员查看最新的服务手册，并按照新流程执行工作。\n\n重点变更：\n1. 回访时间调整为购买后3天、7天、30天\n2. 新增满意度调查环节\n3. 健康咨询需在2小时内响应',
+    visible_to: 'after_sales',
+    priority: 'urgent',
+    created_by: '00000000-0000-0000-0000-000000000001',
+    created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+  }
+];
+
+// 客户文件管理钩子
+export const useCustomerFiles = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const addCustomerFile = async (customerId: string, fileData: Omit<CustomerFile, 'id' | 'uploadedAt'>) => {
+    setLoading(true);
+    try {
+      const newFile: CustomerFile = {
+        id: Date.now().toString(),
+        ...fileData,
+        uploadedAt: new Date().toISOString()
+      };
+
+      // 更新全局客户数据中的文件
+      globalCustomers = globalCustomers.map(customer => 
+        customer.id === customerId 
+          ? { ...customer, files: [...customer.files, newFile] }
+          : customer
+      );
+
+      setError(null);
+      return newFile;
+    } catch (err) {
+      setError('添加文件失败');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteCustomerFile = async (customerId: string, fileId: string) => {
+    setLoading(true);
+    try {
+      // 从全局客户数据中删除文件
+      globalCustomers = globalCustomers.map(customer => 
+        customer.id === customerId 
+          ? { ...customer, files: customer.files.filter(file => file.id !== fileId) }
+          : customer
+      );
+
+      setError(null);
+    } catch (err) {
+      setError('删除文件失败');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { 
+    loading, 
+    error, 
+    addCustomerFile, 
+    deleteCustomerFile 
+  };
+};
 
 // 客户数据钩子
 export const useCustomers = () => {
@@ -1525,5 +1782,300 @@ export const useServiceTemplates = () => {
     loading, 
     error, 
     refetch: fetchServiceTemplates 
+  };
+};
+
+// 公告数据钩子
+export const useAnnouncements = () => {
+  const { user } = useAuth();
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAnnouncements = async () => {
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // 根据用户角色过滤公告
+      let filteredAnnouncements = [...globalAnnouncements];
+      
+      if (user) {
+        if (user.role === 'sales') {
+          filteredAnnouncements = filteredAnnouncements.filter(
+            a => a.visible_to === 'sales' || a.visible_to === 'all'
+          );
+        } else if (user.role === 'after_sales') {
+          filteredAnnouncements = filteredAnnouncements.filter(
+            a => a.visible_to === 'after_sales' || a.visible_to === 'all'
+          );
+        }
+        // 管理员可以看到所有公告
+      }
+      
+      setAnnouncements(filteredAnnouncements);
+      setError(null);
+    } catch (err) {
+      setError('获取公告数据失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addAnnouncement = async (announcementData: Omit<Announcement, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => {
+    if (!user) throw new Error('用户未登录');
+    
+    const newAnnouncement: Announcement = {
+      id: Date.now().toString(),
+      ...announcementData,
+      created_by: user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    globalAnnouncements = [newAnnouncement, ...globalAnnouncements];
+    
+    // 根据用户角色过滤公告
+    let filteredAnnouncements = [...globalAnnouncements];
+    if (user.role === 'sales') {
+      filteredAnnouncements = filteredAnnouncements.filter(
+        a => a.visible_to === 'sales' || a.visible_to === 'all'
+      );
+    } else if (user.role === 'after_sales') {
+      filteredAnnouncements = filteredAnnouncements.filter(
+        a => a.visible_to === 'after_sales' || a.visible_to === 'all'
+      );
+    }
+    
+    setAnnouncements(filteredAnnouncements);
+    return newAnnouncement;
+  };
+
+  const updateAnnouncement = async (announcementId: string, announcementData: Partial<Omit<Announcement, 'id' | 'created_at' | 'updated_at' | 'created_by'>>) => {
+    if (!user || user.role !== 'admin') throw new Error('只有管理员可以更新公告');
+    
+    const existingAnnouncement = globalAnnouncements.find(a => a.id === announcementId);
+    if (!existingAnnouncement) throw new Error('公告不存在');
+
+    const updatedAnnouncement: Announcement = {
+      ...existingAnnouncement,
+      ...announcementData,
+      updated_at: new Date().toISOString()
+    };
+
+    globalAnnouncements = globalAnnouncements.map(announcement => 
+      announcement.id === announcementId ? updatedAnnouncement : announcement
+    );
+    
+    // 根据用户角色过滤公告
+    let filteredAnnouncements = [...globalAnnouncements];
+    if (user.role === 'sales') {
+      filteredAnnouncements = filteredAnnouncements.filter(
+        a => a.visible_to === 'sales' || a.visible_to === 'all'
+      );
+    } else if (user.role === 'after_sales') {
+      filteredAnnouncements = filteredAnnouncements.filter(
+        a => a.visible_to === 'after_sales' || a.visible_to === 'all'
+      );
+    }
+    
+    setAnnouncements(filteredAnnouncements);
+    return updatedAnnouncement;
+  };
+
+  const deleteAnnouncement = async (announcementId: string) => {
+    if (!user || user.role !== 'admin') throw new Error('只有管理员可以删除公告');
+    
+    globalAnnouncements = globalAnnouncements.filter(announcement => announcement.id !== announcementId);
+    
+    // 根据用户角色过滤公告
+    let filteredAnnouncements = [...globalAnnouncements];
+    if (user.role === 'sales') {
+      filteredAnnouncements = filteredAnnouncements.filter(
+        a => a.visible_to === 'sales' || a.visible_to === 'all'
+      );
+    } else if (user.role === 'after_sales') {
+      filteredAnnouncements = filteredAnnouncements.filter(
+        a => a.visible_to === 'after_sales' || a.visible_to === 'all'
+      );
+    }
+    
+    setAnnouncements(filteredAnnouncements);
+  };
+
+  useEffect(() => {
+    fetchAnnouncements();
+  }, [user]);
+
+  return { 
+    announcements, 
+    loading, 
+    error, 
+    addAnnouncement, 
+    updateAnnouncement, 
+    deleteAnnouncement, 
+    refetch: fetchAnnouncements 
+  };
+};
+
+// 销售业绩数据钩子
+export const useSalesPerformance = () => {
+  const { user, teams, users } = useAuth();
+  const [salesPerformance, setSalesPerformance] = useState<SalesPerformance[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 初始化销售业绩数据
+  useEffect(() => {
+    if (users.length > 0 && globalSalesPerformance.length === 0) {
+      globalSalesPerformance = generateSalesPerformanceData(users);
+    }
+  }, [users]);
+
+  const fetchSalesPerformance = async (startDate?: string, endDate?: string) => {
+    setLoading(true);
+    try {
+      // 确保销售业绩数据已初始化
+      if (globalSalesPerformance.length === 0 && users.length > 0) {
+        globalSalesPerformance = generateSalesPerformanceData(users);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 过滤日期范围
+      let filteredPerformance = [...globalSalesPerformance];
+      
+      if (startDate) {
+        filteredPerformance = filteredPerformance.filter(p => p.date >= startDate);
+      }
+      
+      if (endDate) {
+        filteredPerformance = filteredPerformance.filter(p => p.date <= endDate);
+      }
+      
+      // 如果是销售员，只显示自己的业绩
+      if (user && user.role === 'sales') {
+        filteredPerformance = filteredPerformance.filter(p => p.salesId === user.id);
+      }
+      
+      setSalesPerformance(filteredPerformance);
+      setError(null);
+    } catch (err) {
+      setError('获取销售业绩数据失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 获取团队业绩数据
+  const getTeamPerformance = (teamId: string, startDate?: string, endDate?: string) => {
+    let teamData = salesPerformance.filter(p => p.teamId === teamId);
+    
+    if (startDate) {
+      teamData = teamData.filter(p => p.date >= startDate);
+    }
+    
+    if (endDate) {
+      teamData = teamData.filter(p => p.date <= endDate);
+    }
+    
+    return teamData;
+  };
+
+  // 获取个人业绩数据
+  const getSalesPerformance = (salesId: string, startDate?: string, endDate?: string) => {
+    let salesData = salesPerformance.filter(p => p.salesId === salesId);
+    
+    if (startDate) {
+      salesData = salesData.filter(p => p.date >= startDate);
+    }
+    
+    if (endDate) {
+      salesData = salesData.filter(p => p.date <= endDate);
+    }
+    
+    return salesData;
+  };
+
+  // 获取日期范围内的汇总数据
+  const getSummaryData = (startDate?: string, endDate?: string, teamId?: string, salesId?: string) => {
+    let filteredData = [...salesPerformance];
+    
+    if (startDate) {
+      filteredData = filteredData.filter(p => p.date >= startDate);
+    }
+    
+    if (endDate) {
+      filteredData = filteredData.filter(p => p.date <= endDate);
+    }
+    
+    if (teamId) {
+      filteredData = filteredData.filter(p => p.teamId === teamId);
+    }
+    
+    if (salesId) {
+      filteredData = filteredData.filter(p => p.salesId === salesId);
+    }
+    
+    // 按销售员分组
+    const salesSummary = filteredData.reduce((acc, curr) => {
+      if (!acc[curr.salesId]) {
+        acc[curr.salesId] = {
+          salesId: curr.salesId,
+          salesName: curr.salesName,
+          teamId: curr.teamId,
+          teamName: curr.teamName,
+          totalTraffic: 0,
+          totalOrders: 0,
+          totalRevenue: 0
+        };
+      }
+      
+      acc[curr.salesId].totalTraffic += curr.traffic;
+      acc[curr.salesId].totalOrders += curr.orders;
+      acc[curr.salesId].totalRevenue += curr.revenue;
+      
+      return acc;
+    }, {} as Record<string, any>);
+    
+    // 按团队分组
+    const teamSummary = filteredData.reduce((acc, curr) => {
+      if (curr.teamId) {
+        if (!acc[curr.teamId]) {
+          acc[curr.teamId] = {
+            teamId: curr.teamId,
+            teamName: curr.teamName,
+            totalTraffic: 0,
+            totalOrders: 0,
+            totalRevenue: 0
+          };
+        }
+        
+        acc[curr.teamId].totalTraffic += curr.traffic;
+        acc[curr.teamId].totalOrders += curr.orders;
+        acc[curr.teamId].totalRevenue += curr.revenue;
+      }
+      
+      return acc;
+    }, {} as Record<string, any>);
+    
+    return {
+      salesSummary: Object.values(salesSummary),
+      teamSummary: Object.values(teamSummary)
+    };
+  };
+
+  useEffect(() => {
+    fetchSalesPerformance();
+  }, [user, users]);
+
+  return {
+    salesPerformance,
+    loading,
+    error,
+    fetchSalesPerformance,
+    getTeamPerformance,
+    getSalesPerformance,
+    getSummaryData
   };
 };
