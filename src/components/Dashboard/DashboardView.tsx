@@ -359,7 +359,7 @@ const DashboardView: React.FC = () => {
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-4 grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                {cityDistributionData.slice(0, 8).map((item, index) => (
+                {cityDistributionData.map((item, index) => (
                   <div key={index} className="flex items-center justify-between text-sm">
                     <div className="flex items-center">
                       <div 
@@ -371,11 +371,6 @@ const DashboardView: React.FC = () => {
                     <span className="font-medium text-gray-900">{item.value}位</span>
                   </div>
                 ))}
-                {cityDistributionData.length > 8 && (
-                  <div className="text-xs text-gray-500 text-center pt-2 border-t">
-                    还有 {cityDistributionData.length - 8} 个城市...
-                  </div>
-                )}
               </div>
             </>
           ) : (
