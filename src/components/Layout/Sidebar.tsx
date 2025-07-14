@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  Home, Users, ShoppingBag, Package, BookOpen, DollarSign,
+  Home, Users, ShoppingBag, Package, BookOpen, DollarSign, Receipt,
   BarChart3, Settings, LogOut, HeadphonesIcon, Trophy, Megaphone
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -18,6 +18,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
     const baseItems = [
       { id: 'dashboard', label: '仪表盘', icon: Home, roles: ['admin', 'sales', 'after_sales'] },
       { id: 'customers', label: '客户管理', icon: Users, roles: ['admin', 'sales', 'after_sales'] },
+      { id: 'installment_records', label: '分期打款记录', icon: Receipt, roles: ['admin', 'sales', 'after_sales'] },
       { id: 'knowledge', label: '知识库', icon: BookOpen, roles: ['admin', 'sales', 'after_sales'] },
       { id: 'announcements', label: '公告管理', icon: Megaphone, roles: ['admin', 'sales', 'after_sales'] },
       { id: 'financial', label: '收支明细', icon: DollarSign, roles: ['admin'] }
@@ -46,6 +47,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
         label: '系统设置', 
         icon: Settings, 
         roles: ['admin'] 
+      });
+    }
+
+    // 销售员也可以访问销售业绩排名
+    if (user?.role === 'sales') {
+      baseItems.push({ 
+        id: 'analytics', 
+        label: '销售业绩排名', 
+        icon: Trophy, 
+        roles: ['sales'] 
       });
     }
 

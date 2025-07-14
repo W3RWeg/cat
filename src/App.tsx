@@ -7,6 +7,7 @@ import WelcomeToast from './components/Common/WelcomeToast';
 import DashboardView from './components/Dashboard/DashboardView';
 import CustomersView from './components/Customers/CustomersView';
 import KnowledgeView from './components/Knowledge/KnowledgeView';
+import { InstallmentRecordsView } from './components/InstallmentRecords';
 import SettingsView from './components/Settings/SettingsView';
 import AfterSalesView from './components/AfterSales/AfterSalesView';
 import SalesPerformanceView from './components/SalesPerformance/SalesPerformanceView';
@@ -26,6 +27,7 @@ const AppContent: React.FC = () => {
     const titles = {
       dashboard: '仪表盘',
       customers: '客户管理',
+      installment_records: '分期打款记录',
       orders: '订单管理',
       products: '产品管理',
       knowledge: '知识库',
@@ -44,6 +46,8 @@ const AppContent: React.FC = () => {
         return <DashboardView />;
       case 'customers':
         return <CustomersView />;
+      case 'installment_records':
+        return <InstallmentRecordsView />;
       case 'knowledge':
         return <KnowledgeView />;
       case 'analytics':

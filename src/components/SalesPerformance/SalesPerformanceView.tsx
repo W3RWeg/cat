@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trophy, TrendingUp, Users, DollarSign, Calendar, Award, Target, Star, Filter, Download, ChevronLeft, ChevronRight, UsersRound, User, BarChart2, Edit, Save, X } from 'lucide-react';
+import { Trophy, TrendingUp, Users, DollarSign, Calendar, Award, Target, Star, Filter, Download, ChevronLeft, ChevronRight, UsersRound, User, BarChart2, Edit, Save, X, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { useOrders, useCustomers, useSalesPerformance } from '../../hooks/useDatabase';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +21,7 @@ const SalesPerformanceView: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().substring(0, 7)); // YYYY-MM
   const [selectedWeek, setSelectedWeek] = useState<number>(getWeekNumber(new Date()));
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().substring(0, 10)); // YYYY-MM-DD
+  const [displayMode, setDisplayMode] = useState<'ranking' | 'details'>('ranking');
 
   // 编辑状态管理
   const [isEditing, setIsEditing] = useState(false);
@@ -96,9 +97,10 @@ const SalesPerformanceView: React.FC = () => {
   // 获取汇总数据
   const summaryData = getSummaryData(dateRange.start, dateRange.end);
   
-  // 根据排序方式对数据进行排序
+  // 根据排序方式对数据进行排序 - 所有用户都应该看到完整数据
   const getSortedData = () => {
     if (viewMode === 'personal') {
+      // 显示所有销售员数据，不进行角色过滤
       return [...summaryData.salesSummary].sort((a, b) => {
         switch (sortBy) {
           case 'revenue':
@@ -112,6 +114,7 @@ const SalesPerformanceView: React.FC = () => {
         }
       });
     } else {
+      // 显示所有团队数据
       return [...summaryData.teamSummary].sort((a, b) => {
         switch (sortBy) {
           case 'revenue':
@@ -234,6 +237,21 @@ const SalesPerformanceView: React.FC = () => {
       }
     }
   };
+
+  // 判断是否需要分割显示
+  const shouldSplitTable = () => {
+    if (timeRange === 'month') {
+      return monthDays.length > 15;
+    }
+    if (timeRange === 'week') {
+      return false; // 周视图不需要分割
+    }
+    return false; // 日视图不需要分割
+  };
+
+  const splitTable = shouldSplitTable();
+  const firstHalfDays = splitTable ? monthDays.slice(0, 15) : (timeRange === 'month' ? monthDays : timeRange === 'week' ? weekDays : []);
+  const secondHalfDays = splitTable ? monthDays.slice(15) : [];
 
   // 处理编辑数据
   const handleEditStart = () => {
@@ -580,34 +598,32 @@ const SalesPerformanceView: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-4">
-          {/* 管理员编辑按钮 */}
-          {user?.role === 'admin' && (
-            isEditing ? (
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={handleEditSave}
-                  className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  保存
-                </button>
-                <button 
-                  onClick={handleEditCancel}
-                  className="bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  取消
-                </button>
-              </div>
-            ) : (
+          {/* 编辑按钮 - 所有用户都可以编辑 */}
+          {isEditing ? (
+            <div className="flex items-center space-x-2">
               <button 
-                onClick={handleEditStart}
-                className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                onClick={handleEditSave}
+                className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
               >
-                <Edit className="w-4 h-4 mr-2" />
-                编辑数据
+                <Save className="w-4 h-4 mr-2" />
+                保存
               </button>
-            )
+              <button 
+                onClick={handleEditCancel}
+                className="bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center"
+              >
+                <X className="w-4 h-4 mr-2" />
+                取消
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={handleEditStart}
+              className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              编辑数据
+            </button>
           )}
           
           {/* 时间范围切换 */}
@@ -749,39 +765,78 @@ const SalesPerformanceView: React.FC = () => {
         </div>
       </div>
 
-      {/* 销售排行榜 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 排名区 */}
-        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-6">
-            {viewMode === 'personal' ? '销售员业绩排名' : '团队业绩排名'}
-          </h3>
+      {/* 业绩排名和明细共用区域 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-6">
+          {/* 显示模式切换 */}
+          <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setDisplayMode('ranking')}
+              className={`px-4 py-2 text-sm font-medium flex items-center ${
+                displayMode === 'ranking' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Trophy className="w-4 h-4 mr-2" />
+              业绩排名
+            </button>
+            <button
+              onClick={() => setDisplayMode('details')}
+              className={`px-4 py-2 text-sm font-medium flex items-center ${
+                displayMode === 'details' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              业绩明细
+            </button>
+          </div>
           
-          {sortedData.length > 0 ? (
-            <div className="space-y-4">
-              {sortedData.map((item, index) => (
-                <div
-                  key={viewMode === 'personal' ? item.salesId : item.teamId}
-                  className={`p-4 rounded-xl transition-all hover:shadow-md ${
-                    index < 3 
-                      ? ['bg-gradient-to-r from-yellow-400 to-yellow-600 text-white', 
-                         'bg-gradient-to-r from-gray-300 to-gray-500 text-white', 
-                         'bg-gradient-to-r from-orange-400 to-orange-600 text-white'][index]
-                      : 'bg-white border border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="flex items-center mr-4">
-                        {index === 0 ? <Trophy className="w-5 h-5 text-white" /> :
-                         index === 1 ? <Award className="w-5 h-5 text-white" /> :
-                         index === 2 ? <Star className="w-5 h-5 text-white" /> :
-                         <Target className="w-5 h-5 text-gray-400" />}
-                        <span className={`ml-2 text-lg font-bold ${
-                          index < 3 ? 'text-white' : 'text-gray-800'
-                        }`}>
-                          #{index + 1}
-                        </span>
+          {isEditing && displayMode === 'details' && (
+            <div className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+              编辑模式 - 点击数字进行修改
+            </div>
+          )}
+        </div>
+
+        {/* 根据显示模式渲染不同内容 */}
+        <div>
+          {displayMode === 'ranking' ? (
+            /* 业绩排名视图 */
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-6">
+                {viewMode === 'personal' ? '销售员业绩排名' : '团队业绩排名'}
+              </h3>
+              
+              {sortedData.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sortedData.map((item, index) => (
+                    <div
+                      key={viewMode === 'personal' ? item.salesId : item.teamId}
+                      className={`p-4 rounded-xl transition-all hover:shadow-md ${
+                        index < 3 
+                          ? ['bg-gradient-to-r from-yellow-400 to-yellow-600 text-white', 
+                             'bg-gradient-to-r from-gray-300 to-gray-500 text-white', 
+                             'bg-gradient-to-r from-orange-400 to-orange-600 text-white'][index]
+                          : 'bg-white border border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center">
+                          <div className="flex items-center mr-4">
+                            {index === 0 ? <Trophy className="w-5 h-5 text-white" /> :
+                             index === 1 ? <Award className="w-5 h-5 text-white" /> :
+                             index === 2 ? <Star className="w-5 h-5 text-white" /> :
+                             <Target className="w-5 h-5 text-gray-400" />}
+                            <span className={`ml-2 text-lg font-bold ${
+                              index < 3 ? 'text-white' : 'text-gray-800'
+                            }`}>
+                              #{index + 1}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                       
                       <div>
@@ -789,482 +844,519 @@ const SalesPerformanceView: React.FC = () => {
                           index < 3 ? 'text-white' : 'text-gray-800'
                         }`}>
                           {viewMode === 'personal' ? item.salesName : item.teamName}
+                          {viewMode === 'personal' && user?.name === item.salesName && (
+                            <span className={`ml-2 text-xs px-2 py-1 rounded-full ${
+                              index < 3 ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-600'
+                            }`}>
+                              我的排名
+                            </span>
+                          )}
                         </h4>
                       </div>
+                      
+                      <div className="grid grid-cols-3 gap-4 mt-4">
+                        <div>
+                          <p className={`text-xs ${
+                            index < 3 ? 'text-white/80' : 'text-gray-600'
+                          }`}>
+                            流量
+                          </p>
+                          <p className={`text-lg font-bold ${
+                            index < 3 ? 'text-white' : 'text-gray-800'
+                          }`}>
+                            {item.totalTraffic}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <p className={`text-xs ${
+                            index < 3 ? 'text-white/80' : 'text-gray-600'
+                          }`}>
+                            订单数
+                          </p>
+                          <p className={`text-lg font-bold ${
+                            index < 3 ? 'text-white' : 'text-gray-800'
+                          }`}>
+                            {item.totalOrders}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <p className={`text-xs ${
+                            index < 3 ? 'text-white/80' : 'text-gray-600'
+                          }`}>
+                            业绩
+                          </p>
+                          <p className={`text-lg font-bold ${
+                            index < 3 ? 'text-white' : 'text-gray-800'
+                          }`}>
+                            ¥{(item.totalRevenue / 10000).toFixed(1)}万
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* 转化率 */}
+                      <div className="mt-3 pt-3 border-t border-white/20">
+                        <div className="flex justify-between items-center">
+                          <span className={`text-xs ${
+                            index < 3 ? 'text-white/80' : 'text-gray-600'
+                          }`}>
+                            转化率
+                          </span>
+                          <span className={`font-medium ${
+                            index < 3 ? 'text-white' : 'text-gray-800'
+                          }`}>
+                            {item.totalTraffic > 0 ? ((item.totalOrders / item.totalTraffic) * 100).toFixed(1) : 0}%
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4 mt-4">
-                    <div>
-                      <p className={`text-xs ${
-                        index < 3 ? 'text-white/80' : 'text-gray-600'
-                      }`}>
-                        流量
-                      </p>
-                      <p className={`text-lg font-bold ${
-                        index < 3 ? 'text-white' : 'text-gray-800'
-                      }`}>
-                        {item.totalTraffic}
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <p className={`text-xs ${
-                        index < 3 ? 'text-white/80' : 'text-gray-600'
-                      }`}>
-                        订单数
-                      </p>
-                      <p className={`text-lg font-bold ${
-                        index < 3 ? 'text-white' : 'text-gray-800'
-                      }`}>
-                        {item.totalOrders}
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <p className={`text-xs ${
-                        index < 3 ? 'text-white/80' : 'text-gray-600'
-                      }`}>
-                        业绩
-                      </p>
-                      <p className={`text-lg font-bold ${
-                        index < 3 ? 'text-white' : 'text-gray-800'
-                      }`}>
-                        ¥{(item.totalRevenue / 10000).toFixed(1)}万
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* 转化率 */}
-                  <div className="mt-3 pt-3 border-t border-white/20">
-                    <div className="flex justify-between items-center">
-                      <span className={`text-xs ${
-                        index < 3 ? 'text-white/80' : 'text-gray-600'
-                      }`}>
-                        转化率
-                      </span>
-                      <span className={`font-medium ${
-                        index < 3 ? 'text-white' : 'text-gray-800'
-                      }`}>
-                        {item.totalTraffic > 0 ? ((item.totalOrders / item.totalTraffic) * 100).toFixed(1) : 0}%
-                      </span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="text-center py-12">
+                  <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">暂无销售数据</h3>
+                  <p className="text-gray-600">选择的时间范围内没有销售记录</p>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">暂无销售数据</h3>
-              <p className="text-gray-600">选择的时间范围内没有销售记录</p>
+            /* 业绩明细视图 */
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-6">
+                {viewMode === 'personal' ? '销售员业绩明细' : '团队业绩明细'}
+              </h3>
+              
+              {/* 渲染表格的函数 */}
+              {(() => {
+                const renderTable = (days: typeof monthDays, title?: string) => (
+                  <div className={splitTable ? "mb-8" : ""}>
+                    {title && (
+                      <h4 className="text-md font-semibold text-gray-700 mb-4 flex items-center">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        {title}
+                      </h4>
+                    )}
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full">
+                        <thead>
+                          <tr>
+                            <th className="px-4 py-2 text-left text-sm font-medium text-gray-500 border-b border-gray-200 sticky left-0 bg-white">
+                              {viewMode === 'personal' ? '销售员' : '团队'}
+                            </th>
+                            {timeRange === 'month' && days.map(day => (
+                              <th key={day.date} className="px-2 py-2 text-center text-xs font-medium text-gray-500 border-b border-gray-200">
+                                <div>周{day.weekday}</div>
+                                <div>{day.day}日</div>
+                              </th>
+                            ))}
+                            {timeRange === 'week' && weekDays.map(day => (
+                              <th key={day.date} className="px-2 py-2 text-center text-xs font-medium text-gray-500 border-b border-gray-200">
+                                <div>周{day.weekday}</div>
+                                <div>{day.day}日</div>
+                              </th>
+                            ))}
+                            {timeRange === 'day' && (
+                              <th className="px-4 py-2 text-center text-sm font-medium text-gray-500 border-b border-gray-200">
+                                {new Date(selectedDate).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
+                              </th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {viewMode === 'personal' ? (
+                            // 个人业绩统计
+                            sortedData.slice(0, 5).map((salesPerson, index) => (
+                              <React.Fragment key={salesPerson.salesId}>
+                                {/* 销售员名称行 */}
+                                <tr>
+                                  <td className="px-4 py-2 text-sm font-medium text-gray-800 border-b border-gray-100 sticky left-0 bg-white">
+                                    {salesPerson.salesName}
+                                    {user?.name === salesPerson.salesName && (
+                                      <span className="ml-2 text-xs px-2 py-1 bg-blue-100 text-blue-600 rounded-full">
+                                        我的
+                                      </span>
+                                    )}
+                                  </td>
+                                  {timeRange === 'month' && days.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs text-gray-500 border-b border-gray-100 min-w-[60px]">
+                                      {/* 日期单元格内容 */}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'week' && weekDays.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs text-gray-500 border-b border-gray-100 min-w-[60px]">
+                                      {/* 日期单元格内容 */}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'day' && (
+                                    <td className="px-4 py-2 text-center text-sm text-gray-500 border-b border-gray-100 min-w-[60px]">
+                                      {/* 日期单元格内容 */}
+                                    </td>
+                                  )}
+                                </tr>
+                                
+                                {/* 流量行 */}
+                                <tr className="bg-gray-50">
+                                  <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-gray-50">
+                                    流量
+                                  </td>
+                                  {timeRange === 'month' && days.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-blue-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[salesPerson.salesName]?.[day.date]?.traffic || 0}
+                                          onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'traffic', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-blue-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 20) + 5
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'week' && weekDays.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-blue-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[salesPerson.salesName]?.[day.date]?.traffic || 0}
+                                          onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'traffic', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-blue-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 20) + 5
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'day' && (
+                                    <td className="px-4 py-2 text-center text-sm font-medium text-blue-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[salesPerson.salesName]?.[selectedDate]?.traffic || 0}
+                                          onChange={(e) => handleDataChange(salesPerson.salesName, selectedDate, 'traffic', e.target.value)}
+                                          className="w-full px-2 py-1 text-center border border-blue-300 rounded text-sm"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 20) + 5
+                                      )}
+                                    </td>
+                                  )}
+                                </tr>
+                                
+                                {/* 订单数行 */}
+                                <tr>
+                                  <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-white">
+                                    订单数
+                                  </td>
+                                  {timeRange === 'month' && days.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-green-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[salesPerson.salesName]?.[day.date]?.orders || 0}
+                                          onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'orders', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-green-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 5)
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'week' && weekDays.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-green-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[salesPerson.salesName]?.[day.date]?.orders || 0}
+                                          onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'orders', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-green-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 5)
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'day' && (
+                                    <td className="px-4 py-2 text-center text-sm font-medium text-green-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[salesPerson.salesName]?.[selectedDate]?.orders || 0}
+                                          onChange={(e) => handleDataChange(salesPerson.salesName, selectedDate, 'orders', e.target.value)}
+                                          className="w-full px-2 py-1 text-center border border-green-300 rounded text-sm"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 5)
+                                      )}
+                                    </td>
+                                  )}
+                                </tr>
+                                
+                                {/* 业绩行 */}
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                  <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-gray-50">
+                                    业绩
+                                  </td>
+                                  {timeRange === 'month' && days.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-red-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[salesPerson.salesName]?.[day.date]?.revenue || 0}
+                                          onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'revenue', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-red-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 2 + 0.5).toFixed(1)}万` : '-'
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'week' && weekDays.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-red-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[salesPerson.salesName]?.[day.date]?.revenue || 0}
+                                          onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'revenue', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-red-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 2 + 0.5).toFixed(1)}万` : '-'
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'day' && (
+                                    <td className="px-4 py-2 text-center text-sm font-medium text-red-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[salesPerson.salesName]?.[selectedDate]?.revenue || 0}
+                                          onChange={(e) => handleDataChange(salesPerson.salesName, selectedDate, 'revenue', e.target.value)}
+                                          className="w-full px-2 py-1 text-center border border-red-300 rounded text-sm"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 2 + 0.5).toFixed(1)}万` : '-'
+                                      )}
+                                    </td>
+                                  )}
+                                </tr>
+                              </React.Fragment>
+                            ))
+                          ) : (
+                            // 团队业绩统计
+                            sortedData.map((team, index) => (
+                              <React.Fragment key={team.teamId}>
+                                {/* 团队名称行 */}
+                                <tr>
+                                  <td className="px-4 py-2 text-sm font-medium text-gray-800 border-b border-gray-100 sticky left-0 bg-white">
+                                    {team.teamName}
+                                  </td>
+                                  {timeRange === 'month' && days.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs text-gray-500 border-b border-gray-100">
+                                      {/* 这里可以根据日期获取具体数据 */}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'week' && weekDays.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs text-gray-500 border-b border-gray-100">
+                                      {/* 这里可以根据日期获取具体数据 */}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'day' && (
+                                    <td className="px-4 py-2 text-center text-sm text-gray-500 border-b border-gray-100">
+                                      {/* 这里可以根据日期获取具体数据 */}
+                                    </td>
+                                  )}
+                                </tr>
+                                
+                                {/* 流量行 */}
+                                <tr className="bg-gray-50">
+                                  <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-gray-50">
+                                    流量
+                                  </td>
+                                  {timeRange === 'month' && days.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-blue-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[team.teamName]?.[day.date]?.traffic || 0}
+                                          onChange={(e) => handleDataChange(team.teamName, day.date, 'traffic', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-blue-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 40) + 10
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'week' && weekDays.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-blue-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[team.teamName]?.[day.date]?.traffic || 0}
+                                          onChange={(e) => handleDataChange(team.teamName, day.date, 'traffic', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-blue-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 40) + 10
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'day' && (
+                                    <td className="px-4 py-2 text-center text-sm font-medium text-blue-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[team.teamName]?.[selectedDate]?.traffic || 0}
+                                          onChange={(e) => handleDataChange(team.teamName, selectedDate, 'traffic', e.target.value)}
+                                          className="w-full px-2 py-1 text-center border border-blue-300 rounded text-sm"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 40) + 10
+                                      )}
+                                    </td>
+                                  )}
+                                </tr>
+                                
+                                {/* 订单数行 */}
+                                <tr>
+                                  <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-white">
+                                    订单数
+                                  </td>
+                                  {timeRange === 'month' && days.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-green-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[team.teamName]?.[day.date]?.orders || 0}
+                                          onChange={(e) => handleDataChange(team.teamName, day.date, 'orders', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-green-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 10)
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'week' && weekDays.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-green-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[team.teamName]?.[day.date]?.orders || 0}
+                                          onChange={(e) => handleDataChange(team.teamName, day.date, 'orders', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-green-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 10)
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'day' && (
+                                    <td className="px-4 py-2 text-center text-sm font-medium text-green-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[team.teamName]?.[selectedDate]?.orders || 0}
+                                          onChange={(e) => handleDataChange(team.teamName, selectedDate, 'orders', e.target.value)}
+                                          className="w-full px-2 py-1 text-center border border-green-300 rounded text-sm"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 10)
+                                      )}
+                                    </td>
+                                  )}
+                                </tr>
+                                
+                                {/* 业绩行 */}
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                  <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-gray-50">
+                                    业绩
+                                  </td>
+                                  {timeRange === 'month' && days.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-red-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[team.teamName]?.[day.date]?.revenue || 0}
+                                          onChange={(e) => handleDataChange(team.teamName, day.date, 'revenue', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-red-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 4 + 1).toFixed(1)}万` : '-'
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'week' && weekDays.map(day => (
+                                    <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-red-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[team.teamName]?.[day.date]?.revenue || 0}
+                                          onChange={(e) => handleDataChange(team.teamName, day.date, 'revenue', e.target.value)}
+                                          className="w-full px-1 py-1 text-center border border-red-300 rounded text-xs"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 4 + 1).toFixed(1)}万` : '-'
+                                      )}
+                                    </td>
+                                  ))}
+                                  {timeRange === 'day' && (
+                                    <td className="px-4 py-2 text-center text-sm font-medium text-red-600 min-w-[60px]">
+                                      {isEditing ? (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editData[team.teamName]?.[selectedDate]?.revenue || 0}
+                                          onChange={(e) => handleDataChange(team.teamName, selectedDate, 'revenue', e.target.value)}
+                                          className="w-full px-2 py-1 text-center border border-red-300 rounded text-sm"
+                                        />
+                                      ) : (
+                                        Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 4 + 1).toFixed(1)}万` : '-'
+                                      )}
+                                    </td>
+                                  )}
+                                </tr>
+                              </React.Fragment>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+
+                // 根据是否需要分割来渲染表格
+                if (splitTable) {
+                  return (
+                    <>
+                      {renderTable(firstHalfDays, `${new Date(selectedMonth + '-01').toLocaleDateString('zh-CN', { month: 'long' })} 上半月 (1-15日)`)}
+                      {renderTable(secondHalfDays, `${new Date(selectedMonth + '-01').toLocaleDateString('zh-CN', { month: 'long' })} 下半月 (16-${monthDays.length}日)`)}
+                    </>
+                  );
+                } else {
+                  return renderTable(firstHalfDays);
+                }
+              })()}
             </div>
           )}
-        </div>
-        
-        {/* 统计区 */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-6">
-            {viewMode === 'personal' ? '销售员业绩明细' : '团队业绩明细'}
-          </h3>
-          
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr>
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-500 border-b border-gray-200 sticky left-0 bg-white">
-                    {viewMode === 'personal' ? '销售员' : '团队'}
-                  </th>
-                  {timeRange === 'month' && monthDays.map(day => (
-                    <th key={day.date} className="px-2 py-2 text-center text-xs font-medium text-gray-500 border-b border-gray-200">
-                      <div>周{day.weekday}</div>
-                      <div>{day.day}日</div>
-                    </th>
-                  ))}
-                  {timeRange === 'week' && weekDays.map(day => (
-                    <th key={day.date} className="px-2 py-2 text-center text-xs font-medium text-gray-500 border-b border-gray-200">
-                      <div>周{day.weekday}</div>
-                      <div>{day.day}日</div>
-                    </th>
-                  ))}
-                  {timeRange === 'day' && (
-                    <th className="px-4 py-2 text-center text-sm font-medium text-gray-500 border-b border-gray-200">
-                      {new Date(selectedDate).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {viewMode === 'personal' ? (
-                  // 个人业绩统计
-                  sortedData.slice(0, 5).map((salesPerson, index) => (
-                    <React.Fragment key={salesPerson.salesId}>
-                      {/* 销售员名称行 */}
-                      <tr>
-                        <td className="px-4 py-2 text-sm font-medium text-gray-800 border-b border-gray-100 sticky left-0 bg-white">
-                          {salesPerson.salesName}
-                        </td>
-                        {timeRange === 'month' && monthDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs text-gray-500 border-b border-gray-100 min-w-[60px]">
-                            {/* 日期单元格内容 */}
-                          </td>
-                        ))}
-                        {timeRange === 'week' && weekDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs text-gray-500 border-b border-gray-100 min-w-[60px]">
-                            {/* 日期单元格内容 */}
-                          </td>
-                        ))}
-                        {timeRange === 'day' && (
-                          <td className="px-4 py-2 text-center text-sm text-gray-500 border-b border-gray-100 min-w-[60px]">
-                            {/* 日期单元格内容 */}
-                          </td>
-                        )}
-                      </tr>
-                      
-                      {/* 流量行 */}
-                      <tr className="bg-gray-50">
-                        <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-gray-50">
-                          流量
-                        </td>
-                        {timeRange === 'month' && monthDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-blue-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[salesPerson.salesName]?.[day.date]?.traffic || 0}
-                                onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'traffic', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-blue-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 20) + 5
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'week' && weekDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-blue-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[salesPerson.salesName]?.[day.date]?.traffic || 0}
-                                onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'traffic', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-blue-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 20) + 5
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'day' && (
-                          <td className="px-4 py-2 text-center text-sm font-medium text-blue-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[salesPerson.salesName]?.[selectedDate]?.traffic || 0}
-                                onChange={(e) => handleDataChange(salesPerson.salesName, selectedDate, 'traffic', e.target.value)}
-                                className="w-full px-2 py-1 text-center border border-blue-300 rounded text-sm"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 20) + 5
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                      
-                      {/* 订单数行 */}
-                      <tr>
-                        <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-white">
-                          订单数
-                        </td>
-                        {timeRange === 'month' && monthDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-green-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[salesPerson.salesName]?.[day.date]?.orders || 0}
-                                onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'orders', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-green-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 5)
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'week' && weekDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-green-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[salesPerson.salesName]?.[day.date]?.orders || 0}
-                                onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'orders', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-green-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 5)
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'day' && (
-                          <td className="px-4 py-2 text-center text-sm font-medium text-green-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[salesPerson.salesName]?.[selectedDate]?.orders || 0}
-                                onChange={(e) => handleDataChange(salesPerson.salesName, selectedDate, 'orders', e.target.value)}
-                                className="w-full px-2 py-1 text-center border border-green-300 rounded text-sm"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 5)
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                      
-                      {/* 业绩行 */}
-                      <tr className="bg-gray-50 border-b border-gray-200">
-                        <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-gray-50">
-                          业绩
-                        </td>
-                        {timeRange === 'month' && monthDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-red-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[salesPerson.salesName]?.[day.date]?.revenue || 0}
-                                onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'revenue', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-red-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 2 + 0.5).toFixed(1)}万` : '-'
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'week' && weekDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-red-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[salesPerson.salesName]?.[day.date]?.revenue || 0}
-                                onChange={(e) => handleDataChange(salesPerson.salesName, day.date, 'revenue', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-red-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 2 + 0.5).toFixed(1)}万` : '-'
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'day' && (
-                          <td className="px-4 py-2 text-center text-sm font-medium text-red-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[salesPerson.salesName]?.[selectedDate]?.revenue || 0}
-                                onChange={(e) => handleDataChange(salesPerson.salesName, selectedDate, 'revenue', e.target.value)}
-                                className="w-full px-2 py-1 text-center border border-red-300 rounded text-sm"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 2 + 0.5).toFixed(1)}万` : '-'
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    </React.Fragment>
-                  ))
-                ) : (
-                  // 团队业绩统计
-                  sortedData.map((team, index) => (
-                    <React.Fragment key={team.teamId}>
-                      {/* 团队名称行 */}
-                      <tr>
-                        <td className="px-4 py-2 text-sm font-medium text-gray-800 border-b border-gray-100 sticky left-0 bg-white">
-                          {team.teamName}
-                        </td>
-                        {timeRange === 'month' && monthDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs text-gray-500 border-b border-gray-100">
-                            {/* 这里可以根据日期获取具体数据 */}
-                          </td>
-                        ))}
-                        {timeRange === 'week' && weekDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs text-gray-500 border-b border-gray-100">
-                            {/* 这里可以根据日期获取具体数据 */}
-                          </td>
-                        ))}
-                        {timeRange === 'day' && (
-                          <td className="px-4 py-2 text-center text-sm text-gray-500 border-b border-gray-100">
-                            {/* 这里可以根据日期获取具体数据 */}
-                          </td>
-                        )}
-                      </tr>
-                      
-                      {/* 流量行 */}
-                      <tr className="bg-gray-50">
-                        <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-gray-50">
-                          流量
-                        </td>
-                        {timeRange === 'month' && monthDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-blue-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[team.teamName]?.[day.date]?.traffic || 0}
-                                onChange={(e) => handleDataChange(team.teamName, day.date, 'traffic', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-blue-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 40) + 10
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'week' && weekDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-blue-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[team.teamName]?.[day.date]?.traffic || 0}
-                                onChange={(e) => handleDataChange(team.teamName, day.date, 'traffic', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-blue-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 40) + 10
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'day' && (
-                          <td className="px-4 py-2 text-center text-sm font-medium text-blue-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[team.teamName]?.[selectedDate]?.traffic || 0}
-                                onChange={(e) => handleDataChange(team.teamName, selectedDate, 'traffic', e.target.value)}
-                                className="w-full px-2 py-1 text-center border border-blue-300 rounded text-sm"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 40) + 10
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                      
-                      {/* 订单数行 */}
-                      <tr>
-                        <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-white">
-                          订单数
-                        </td>
-                        {timeRange === 'month' && monthDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-green-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[team.teamName]?.[day.date]?.orders || 0}
-                                onChange={(e) => handleDataChange(team.teamName, day.date, 'orders', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-green-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 10)
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'week' && weekDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-green-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[team.teamName]?.[day.date]?.orders || 0}
-                                onChange={(e) => handleDataChange(team.teamName, day.date, 'orders', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-green-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 10)
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'day' && (
-                          <td className="px-4 py-2 text-center text-sm font-medium text-green-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[team.teamName]?.[selectedDate]?.orders || 0}
-                                onChange={(e) => handleDataChange(team.teamName, selectedDate, 'orders', e.target.value)}
-                                className="w-full px-2 py-1 text-center border border-green-300 rounded text-sm"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 10)
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                      
-                      {/* 业绩行 */}
-                      <tr className="bg-gray-50 border-b border-gray-200">
-                        <td className="px-4 py-2 text-xs text-gray-500 sticky left-0 bg-gray-50">
-                          业绩
-                        </td>
-                        {timeRange === 'month' && monthDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-red-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[team.teamName]?.[day.date]?.revenue || 0}
-                                onChange={(e) => handleDataChange(team.teamName, day.date, 'revenue', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-red-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 4 + 1).toFixed(1)}万` : '-'
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'week' && weekDays.map(day => (
-                          <td key={day.date} className="px-2 py-2 text-center text-xs font-medium text-red-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[team.teamName]?.[day.date]?.revenue || 0}
-                                onChange={(e) => handleDataChange(team.teamName, day.date, 'revenue', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-red-300 rounded text-xs"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 4 + 1).toFixed(1)}万` : '-'
-                            )}
-                          </td>
-                        ))}
-                        {timeRange === 'day' && (
-                          <td className="px-4 py-2 text-center text-sm font-medium text-red-600 min-w-[60px]">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={editData[team.teamName]?.[selectedDate]?.revenue || 0}
-                                onChange={(e) => handleDataChange(team.teamName, selectedDate, 'revenue', e.target.value)}
-                                className="w-full px-2 py-1 text-center border border-red-300 rounded text-sm"
-                              />
-                            ) : (
-                              Math.floor(Math.random() * 5) > 0 ? `¥${(Math.random() * 4 + 1).toFixed(1)}万` : '-'
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    </React.Fragment>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
         </div>
       </div>
     </div>
