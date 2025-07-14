@@ -1,548 +1,414 @@
 # 猫咪销售管理系统 - 数据结构说明文档
 
-本文档详细说明了猫咪销售管理系统中使用的所有数据字段、数据关系和业务逻辑，为后端开发提供完整的数据架构参考。
+本文档详细说明了猫咪销售管理系统中使用的所有数据字段、数据关系和业务逻辑，为系统维护和功能扩展提供完整的数据架构参考。
 
 ## 📋 目录
 
-- [数据库概览](#数据库概览)
-- [核心数据表](#核心数据表)
-- [业务数据表](#业务数据表)
-- [数据关系图](#数据关系图)
+- [系统概览](#系统概览)
+- [核心数据类型](#核心数据类型)
+- [业务数据类型](#业务数据类型)
+- [数据存储方案](#数据存储方案)
 - [业务逻辑说明](#业务逻辑说明)
-- [API 接口设计建议](#api-接口设计建议)
+- [权限控制机制](#权限控制机制)
 - [数据验证规则](#数据验证规则)
+- [性能优化建议](#性能优化建议)
 
-## 数据库概览
+## 系统概览
 
-系统使用 PostgreSQL 数据库，通过 Supabase 提供服务。所有表都启用了行级安全策略 (RLS)，确保数据安全。
+猫咪销售管理系统是一个基于React + TypeScript的前端应用，使用本地存储(LocalStorage)进行数据持久化。系统支持多角色权限管理，包含完整的客户管理、售后服务、知识库和财务管理功能。
 
-### 数据库连接信息
-```typescript
-interface DatabaseConfig {
-  host: string;          // Supabase 项目 URL
-  database: string;      // 数据库名称
-  username: string;      // 数据库用户名
-  password: string;      // 数据库密码
-  port: number;          // 端口号 (通常是 5432)
-  ssl: boolean;          // 启用 SSL
-}
-```
+### 技术架构
+- **前端框架**: React 18 + TypeScript
+- **状态管理**: React Context API
+- **数据存储**: LocalStorage + 模拟数据
+- **UI框架**: Tailwind CSS
+- **图表库**: Recharts
+- **图标库**: Lucide React
 
-## 核心数据表
+## 核心数据类型
 
-### 1. users - 用户表
+### 1. User - 用户管理
 
-用户认证和权限管理的核心表。
+用户认证和权限管理的核心类型。
 
-```sql
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'sales', 'after_sales')),
-    password_hash VARCHAR(255) NOT NULL,
-    is_active BOOLEAN DEFAULT true,
-    team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-**字段说明：**
-- `id`: 用户唯一标识符 (UUID)
-- `username`: 登录用户名，唯一
-- `email`: 用户邮箱，唯一
-- `name`: 用户真实姓名
-- `role`: 用户角色，枚举值：'admin'(管理员), 'sales'(销售员), 'after_sales'(售后专员)
-- `password_hash`: 密码哈希值 (使用 bcrypt)
-- `is_active`: 用户状态，true=激活，false=禁用
-- `team_id`: 所属团队ID，外键关联 teams 表
-- `created_at`: 创建时间
-- `updated_at`: 更新时间
-
-**TypeScript 接口：**
 ```typescript
 interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: 'admin' | 'sales' | 'after_sales';
-  name: string;
-  isActive: boolean;
-  createdAt: string;
-  teamId?: string;
+  id: string;                    // 用户唯一标识符
+  username: string;              // 登录用户名，唯一
+  email: string;                 // 用户邮箱
+  role: 'admin' | 'sales' | 'after_sales'; // 用户角色
+  name: string;                  // 用户真实姓名
+  isActive: boolean;             // 用户状态，true=激活，false=禁用
+  createdAt: string;             // 创建时间
+  teamId?: string;               // 所属团队ID（可选）
 }
 ```
 
-### 2. teams - 团队表
+**角色权限说明：**
+- `admin`: 管理员，拥有所有权限
+- `sales`: 销售员，可管理客户和查看业绩
+- `after_sales`: 售后专员，专注售后服务管理
 
-销售团队管理表。
+### 2. Team - 团队管理
 
-```sql
-CREATE TABLE teams (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  description TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-```
+销售团队组织结构管理。
 
-**字段说明：**
-- `id`: 团队唯一标识符
-- `name`: 团队名称
-- `description`: 团队描述
-- `created_at`: 创建时间
-- `updated_at`: 更新时间
-
-**TypeScript 接口：**
 ```typescript
 interface Team {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string;                    // 团队唯一标识符
+  name: string;                  // 团队名称
+  description?: string;          // 团队描述
+  createdAt: string;             // 创建时间
+  updatedAt: string;             // 更新时间
 }
 ```
 
-### 3. customers - 客户表
+### 3. Customer - 客户信息
 
-客户信息管理的核心表，支持零售和分期两种客户类型。
+客户信息管理的核心类型，支持零售和分期两种客户类型。
 
-```sql
-CREATE TABLE customers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL,
-    gender VARCHAR(10) CHECK (gender IN ('male', 'female')),
-    phone VARCHAR(20) NOT NULL,
-    wechat VARCHAR(50),
-    address TEXT,
-    occupation VARCHAR(100),
-    tags JSONB DEFAULT '[]',
-    notes TEXT,
-    assigned_sales VARCHAR(100),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-**字段说明：**
-- `id`: 客户唯一标识符
-- `name`: 客户姓名
-- `gender`: 性别，'male' 或 'female'
-- `phone`: 电话号码
-- `wechat`: 微信号
-- `address`: 地址
-- `occupation`: 职业
-- `tags`: 客户标签，JSON 数组格式
-- `notes`: 备注信息
-- `assigned_sales`: 分配的销售员姓名
-- `created_at`: 创建时间
-- `updated_at`: 更新时间
-
-**扩展字段（前端处理）：**
 ```typescript
 interface Customer {
-  // 基础字段
-  id: string;
-  name: string;
-  gender: 'male' | 'female';
-  phone: string;
-  wechat: string;
-  address: string;
-  occupation: string;
-  tags: string[];
-  notes: string;
-  createdAt: string;
-  assignedSales?: string;
+  // 基础信息
+  id: string;                    // 客户唯一标识符
+  name: string;                  // 客户姓名
+  gender: 'male' | 'female';     // 性别
+  phone: string;                 // 电话号码
+  wechat: string;                // 微信号
+  address: string;               // 地址
+  occupation: string;            // 职业
+  tags: string[];                // 客户标签数组
+  notes: string;                 // 备注信息
+  createdAt: string;             // 创建时间
+  assignedSales: string;         // 分配的销售员
   
   // 客户类型
-  customerType?: 'retail' | 'installment';
+  customerType?: 'retail' | 'installment'; // 客户类型
   
   // 零售客户特有字段
-  orderDate?: string;
-  salesPerson?: string;
-  catName?: string;
-  catBirthday?: string;
-  isMallMember?: boolean;
-  catBreed?: string;
-  catGender?: 'male' | 'female';
-  supplyChain?: string;
-  supplyChainDeposit?: number;
-  totalAmount?: number;
-  paymentMethod?: 'full_payment' | 'shipping_balance' | 'cash_on_delivery';
-  customerDeposit?: number;
-  depositDestination?: string;
-  shippingDate?: string;
-  shippingVideoUrl?: string;
-  balance?: number;
-  balancePaid?: boolean;
-  balanceConfirmMethod?: string;
-  sellingPrice?: number;
-  cost?: number;
-  shippingFee?: number;
-  profit?: number;
-  profitRate?: number;
+  orderDate?: string;            // 订单日期
+  salesPerson?: string;          // 销售员
+  catName?: string;              // 猫咪姓名
+  catBirthday?: string;          // 猫咪生日
+  isMallMember?: boolean;        // 是否商城会员
+  catBreed?: string;             // 猫咪品种
+  catGender?: 'male' | 'female'; // 猫咪性别
+  supplyChain?: string;          // 供应链
+  supplyChainDeposit?: number;   // 供应链定金
+  totalAmount?: number;          // 全款额度
+  paymentMethod?: 'full_payment' | 'shipping_balance' | 'cash_on_delivery'; // 付款方式
+  customerDeposit?: number;      // 客户定金
+  depositDestination?: string;   // 定金去向
+  shippingDate?: string;         // 发货时间
+  shippingVideoUrl?: string;     // 发货视频URL
+  balance?: number;              // 尾款
+  balancePaid?: boolean;         // 尾款是否补齐
+  balanceConfirmMethod?: string; // 尾款确认方式
+  sellingPrice?: number;         // 卖价
+  cost?: number;                 // 成本
+  shippingFee?: number;          // 运费
+  profit?: number;               // 利润
+  profitRate?: number;           // 利润率
   
   // 分期客户特有字段
-  contractName?: string;
-  relationship?: string;
-  isInGroup?: boolean;
-  repaymentDate?: string;
-  installmentPeriod?: string;
-  catCost?: number;
-  collectionAmount?: number;
-  fundsDestination?: string;
-  installmentAmount?: number;
-  installmentCount?: number;
-  signingMethod?: string;
-  isFirstPaymentManual?: boolean;
-  hasESignContract?: boolean;
-  contractTotalPrice?: number;
-  mallGrossProfit?: number;
-  grossProfit?: number;
-  monthlyProfit?: number;
-  breakEvenPeriod?: number;
+  contractName?: string;         // 签约姓名
+  relationship?: string;         // 关系
+  isInGroup?: boolean;           // 是否拉群
+  repaymentDate?: string;        // 还款时间
+  installmentPeriod?: string;    // 分期时间范围
+  catCost?: number;              // 猫咪成本
+  collectionAmount?: number;     // 收款额度
+  fundsDestination?: string;     // 款项去向
+  installmentAmount?: number;    // 分期金额
+  installmentCount?: number;     // 分期数
+  signingMethod?: string;        // 签约方式
+  isFirstPaymentManual?: boolean; // 第一期是否手动转
+  hasESignContract?: boolean;    // e签宝合同
+  contractTotalPrice?: number;   // 合约总价
+  mallGrossProfit?: number;      // 商城毛利
+  grossProfit?: number;          // 毛利润
+  monthlyProfit?: number;        // 月毛利
+  breakEvenPeriod?: number;      // 回本期
   
   // 关联数据
-  installmentPayments?: InstallmentPayment[];
-  files: CustomerFile[];
-  orders: Order[];
+  installmentPayments?: InstallmentPayment[]; // 分期还款记录
+  files: CustomerFile[];         // 客户文件
+  orders: Order[];               // 订单记录
 }
 ```
 
-### 4. customer_files - 客户文件表
+### 4. CustomerFile - 客户文件
 
 存储客户相关的文件信息。
 
-```sql
-CREATE TABLE customer_files (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(20) CHECK (type IN ('image', 'video', 'document')),
-    url TEXT NOT NULL,
-    description TEXT,
-    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-**字段说明：**
-- `id`: 文件唯一标识符
-- `customer_id`: 关联的客户ID
-- `name`: 文件名称
-- `type`: 文件类型，'image'(图片), 'video'(视频), 'document'(文档)
-- `url`: 文件存储URL
-- `description`: 文件描述
-- `uploaded_at`: 上传时间
-
-**TypeScript 接口：**
 ```typescript
 interface CustomerFile {
-  id: string;
-  name: string;
-  type: 'image' | 'video' | 'document';
-  url: string;
-  description?: string;
-  uploadedAt: string;
+  id: string;                    // 文件唯一标识符
+  name: string;                  // 文件名称
+  type: 'image' | 'video' | 'document'; // 文件类型
+  url: string;                   // 文件存储URL
+  description?: string;          // 文件描述
+  uploadedAt: string;            // 上传时间
 }
 ```
 
-### 5. products - 产品表
+### 5. Product - 产品信息
 
 猫咪产品信息管理。
 
-```sql
-CREATE TABLE products (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL,
-    breed VARCHAR(50) NOT NULL,
-    age VARCHAR(20) NOT NULL,
-    gender VARCHAR(10) CHECK (gender IN ('male', 'female')),
-    price DECIMAL(10,2) NOT NULL,
-    description TEXT,
-    images JSONB DEFAULT '[]',
-    videos JSONB DEFAULT '[]',
-    is_available BOOLEAN DEFAULT true,
-    features JSONB DEFAULT '[]',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-**字段说明：**
-- `id`: 产品唯一标识符
-- `name`: 产品名称
-- `breed`: 猫咪品种
-- `age`: 年龄
-- `gender`: 性别
-- `price`: 价格
-- `description`: 产品描述
-- `images`: 图片URL数组，JSON格式
-- `videos`: 视频URL数组，JSON格式
-- `is_available`: 是否可售
-- `features`: 特色功能数组，JSON格式
-- `created_at`: 创建时间
-- `updated_at`: 更新时间
-
-**TypeScript 接口：**
 ```typescript
 interface Product {
-  id: string;
-  name: string;
-  breed: string;
-  age: string;
-  gender: 'male' | 'female';
-  price: number;
-  description: string;
-  images: string[];
-  videos: string[];
-  quarantineVideos: QuarantineVideo[];
-  isAvailable: boolean;
-  features: string[];
+  id: string;                    // 产品唯一标识符
+  name: string;                  // 产品名称
+  breed: string;                 // 猫咪品种
+  age: string;                   // 年龄
+  gender: 'male' | 'female';     // 性别
+  price: number;                 // 价格
+  description: string;           // 产品描述
+  images: string[];              // 图片URL数组
+  videos: string[];              // 视频URL数组
+  quarantineVideos: QuarantineVideo[]; // 检疫视频
+  isAvailable: boolean;          // 是否可售
+  features: string[];            // 特色功能数组
 }
 
 interface QuarantineVideo {
-  id: string;
-  url: string;
-  title: string;
-  description: string;
-  recordedDate: string;
-  duration?: number;
-  fileSize?: number;
-  veterinarian?: string;
-  quarantineStatus: 'healthy' | 'under_observation' | 'treated' | 'cleared';
-  uploadedAt: string;
+  id: string;                    // 视频唯一标识符
+  url: string;                   // 视频URL
+  title: string;                 // 视频标题
+  description: string;           // 视频描述
+  recordedDate: string;          // 录制日期
+  duration?: number;             // 视频时长（秒）
+  fileSize?: number;             // 文件大小（字节）
+  veterinarian?: string;         // 检疫兽医
+  quarantineStatus: 'healthy' | 'under_observation' | 'treated' | 'cleared'; // 检疫状态
+  uploadedAt: string;            // 上传时间
 }
 ```
 
-## 业务数据表
+## 业务数据类型
 
-### 6. orders - 订单表
+### 6. Order - 订单管理
 
-订单管理核心表。
+订单信息和状态管理。
 
-```sql
-CREATE TABLE orders (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
-    order_number VARCHAR(50) UNIQUE NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    payment_method VARCHAR(20) CHECK (payment_method IN ('full', 'installment')),
-    status VARCHAR(20) CHECK (status IN ('pending_payment', 'paid', 'pending_shipment', 'shipped', 'completed', 'cancelled')),
-    order_date DATE DEFAULT CURRENT_DATE,
-    sales_person VARCHAR(100),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+```typescript
+interface Order {
+  id: string;                    // 订单唯一标识符
+  customerId: string;            // 关联客户ID
+  orderNumber: string;           // 订单编号，唯一
+  amount: number;                // 订单金额
+  paymentMethod: 'full' | 'installment'; // 付款方式
+  status: 'pending_payment' | 'paid' | 'pending_shipment' | 'shipped' | 'completed' | 'cancelled'; // 订单状态
+  orderDate: string;             // 订单日期
+  salesPerson: string;           // 销售员
+  installmentPlan?: InstallmentPlan; // 分期付款计划（可选）
+  products: OrderProduct[];      // 订单产品列表
+}
+
+interface OrderProduct {
+  id: string;                    // 产品ID
+  name: string;                  // 产品名称
+  breed: string;                 // 品种
+  price: number;                 // 价格
+  quantity: number;              // 数量
+  image: string;                 // 产品图片
+}
+
+interface InstallmentPlan {
+  totalInstallments: number;     // 总分期数
+  installmentAmount: number;     // 分期金额
+  paidInstallments: number;      // 已付分期数
+  nextPaymentDate: string;       // 下次付款日期
+  payments: Payment[];           // 付款记录
+}
+
+interface Payment {
+  id: string;                    // 付款记录ID
+  installmentNumber: number;     // 分期期数
+  amount: number;                // 付款金额
+  dueDate: string;               // 到期日期
+  paidDate?: string;             // 实际付款日期
+  status: 'pending' | 'paid' | 'overdue'; // 付款状态
+}
 ```
 
-**字段说明：**
-- `id`: 订单唯一标识符
-- `customer_id`: 关联客户ID
-- `order_number`: 订单编号，唯一
-- `amount`: 订单金额
-- `payment_method`: 付款方式，'full'(全款), 'installment'(分期)
-- `status`: 订单状态
-- `order_date`: 订单日期
-- `sales_person`: 销售员
-- `created_at`: 创建时间
-- `updated_at`: 更新时间
+### 7. InstallmentPayment - 分期还款记录
 
-**订单状态说明：**
-- `pending_payment`: 待付款
-- `paid`: 已付款
-- `pending_shipment`: 待发货
-- `shipped`: 已发货
-- `completed`: 已完成
-- `cancelled`: 已取消
+分期客户的还款状态跟踪。
 
-### 7. order_products - 订单产品关联表
-
-订单和产品的多对多关联表。
-
-```sql
-CREATE TABLE order_products (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
-    quantity INTEGER DEFAULT 1,
-    price DECIMAL(10,2) NOT NULL
-);
-```
-
-### 8. installment_plans - 分期付款计划表
-
-分期付款计划管理。
-
-```sql
-CREATE TABLE installment_plans (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-    total_installments INTEGER NOT NULL,
-    installment_amount DECIMAL(10,2) NOT NULL,
-    paid_installments INTEGER DEFAULT 0,
-    next_payment_date DATE
-);
-```
-
-### 9. payments - 付款记录表
-
-具体的付款记录。
-
-```sql
-CREATE TABLE payments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    installment_plan_id UUID REFERENCES installment_plans(id) ON DELETE CASCADE,
-    installment_number INTEGER NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    due_date DATE NOT NULL,
-    paid_date DATE,
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue'))
-);
-```
-
-**TypeScript 接口：**
 ```typescript
 interface InstallmentPayment {
-  id: string;
-  installmentNumber: number;
-  amount: number;
-  dueDate: string;
-  paidDate?: string;
-  isPaid: boolean;
-  isOverdue: boolean;
-  overdueCount?: number;
+  id: string;                    // 还款记录ID
+  installmentNumber: number;     // 分期期数
+  amount: number;                // 还款金额
+  dueDate: string;               // 到期日期
+  paidDate?: string;             // 实际还款日期
+  status: 'pending' | 'paid' | 'overdue'; // 还款状态
+  isPaid: boolean;               // 是否已付款
+  isOverdue: boolean;            // 是否逾期
+  overdueCount?: number;         // 逾期次数
+  notes?: string;                // 备注信息
+}
+
+interface PaymentStatus {
+  status: 'normal' | 'reminder' | 'overdue'; // 还款状态
+  overdueCount?: number;         // 逾期次数
+  nextDueDate?: string;          // 下次到期日期
+  message: string;               // 状态描述
 }
 ```
 
-### 10. knowledge_base - 知识库表
+### 8. KnowledgeBase - 知识库
 
-知识库问答管理。
+知识库问答管理系统。
 
-```sql
-CREATE TABLE knowledge_base (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    question TEXT NOT NULL,
-    answer TEXT NOT NULL,
-    category VARCHAR(50) NOT NULL,
-    tags JSONB DEFAULT '[]',
-    images JSONB DEFAULT '[]',
-    view_count INTEGER DEFAULT 0,
-    created_by UUID REFERENCES users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+```typescript
+interface KnowledgeBase {
+  id: string;                    // 知识库条目ID
+  question: string;              // 问题标题
+  answer: string;                // 答案内容
+  category: string;              // 分类
+  tags: string[];                // 标签数组
+  images?: string[];             // 相关图片URL数组
+  viewCount: number;             // 浏览次数
+  createdAt: string;             // 创建时间
+  updatedAt: string;             // 更新时间
+  createdBy?: string;            // 创建者用户ID
+}
 ```
 
-**字段说明：**
-- `id`: 知识库条目唯一标识符
-- `question`: 问题标题
-- `answer`: 答案内容
-- `category`: 分类
-- `tags`: 标签数组，JSON格式
-- `images`: 相关图片URL数组
-- `view_count`: 浏览次数
-- `created_by`: 创建者用户ID
-- `created_at`: 创建时间
-- `updated_at`: 更新时间
+### 9. AfterSalesRecord - 售后服务记录
 
-### 11. announcements - 公告表
+售后服务管理和跟踪。
 
-系统公告管理。
+```typescript
+interface AfterSalesRecord {
+  id: string;                    // 服务记录ID
+  orderId: string;               // 关联订单ID
+  customerId: string;            // 关联客户ID
+  type: 'phone_visit' | 'health_consultation' | 'home_service' | 'complaint' | 'feedback' | 'maintenance'; // 服务类型
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'; // 服务状态
+  priority: 'low' | 'medium' | 'high' | 'urgent'; // 优先级
+  title: string;                 // 服务标题
+  description: string;           // 问题描述
+  solution?: string;             // 解决方案
+  assignedTo: string;            // 负责人
+  createdBy: string;             // 创建者
+  scheduledDate?: string;        // 预约时间
+  completedDate?: string;        // 完成时间
+  customerSatisfaction?: number; // 客户满意度（1-5星）
+  followUpRequired: boolean;     // 是否需要后续跟进
+  followUpDate?: string;         // 跟进日期
+  attachments: string[];         // 附件URL数组
+  tags: string[];                // 标签
+  createdAt: string;             // 创建时间
+  updatedAt: string;             // 更新时间
+}
 
-```sql
-CREATE TABLE announcements (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  content TEXT NOT NULL,
-  visible_to TEXT NOT NULL CHECK (visible_to IN ('sales', 'after_sales', 'all')),
-  priority TEXT NOT NULL CHECK (priority IN ('normal', 'important', 'urgent')),
-  created_by UUID REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+interface ServiceTemplate {
+  id: string;                    // 模板ID
+  name: string;                  // 模板名称
+  type: AfterSalesRecord['type']; // 服务类型
+  description: string;           // 模板描述
+  defaultPriority: AfterSalesRecord['priority']; // 默认优先级
+  estimatedDuration: number;     // 预计处理时间（分钟）
+  checklist: string[];           // 检查清单
+  isActive: boolean;             // 是否启用
+}
 ```
 
-**字段说明：**
-- `visible_to`: 可见对象，'sales'(仅销售员), 'after_sales'(仅售后专员), 'all'(所有人)
-- `priority`: 优先级，'normal'(普通), 'important'(重要), 'urgent'(紧急)
+### 10. Announcement - 公告管理
 
-### 12. sales_performance - 销售业绩表
+系统公告发布和管理。
 
-销售业绩统计。
-
-```sql
-CREATE TABLE sales_performance (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  date DATE NOT NULL,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
-  traffic INTEGER NOT NULL DEFAULT 0,
-  orders INTEGER NOT NULL DEFAULT 0,
-  revenue DECIMAL(12,2) NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(date, user_id)
-);
+```typescript
+interface Announcement {
+  id: string;                    // 公告ID
+  title: string;                 // 公告标题
+  content: string;               // 公告内容
+  visible_to: 'sales' | 'after_sales' | 'all'; // 可见对象
+  priority: 'normal' | 'important' | 'urgent'; // 优先级
+  created_by: string;            // 创建者ID
+  created_at: string;            // 创建时间
+  updated_at: string;            // 更新时间
+}
 ```
 
-**字段说明：**
-- `date`: 统计日期
-- `user_id`: 用户ID
-- `team_id`: 团队ID
-- `traffic`: 客流量
-- `orders`: 订单数
-- `revenue`: 营收金额
+### 11. SalesPerformance - 销售业绩
 
-### 13. attendance_records - 考勤记录表
+销售业绩统计和排名。
+
+```typescript
+interface SalesPerformance {
+  date: string;                  // 统计日期
+  salesId: string;               // 销售员ID
+  salesName: string;             // 销售员姓名
+  teamId?: string;               // 团队ID
+  teamName?: string;             // 团队名称
+  traffic: number;               // 客流量
+  orders: number;                // 订单数
+  revenue: number;               // 营收金额
+}
+```
+
+### 12. AttendanceRecord - 考勤记录
 
 员工考勤管理。
 
-```sql
-CREATE TABLE attendance_records (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    date DATE NOT NULL,
-    check_in_time TIMESTAMP WITH TIME ZONE,
-    check_out_time TIMESTAMP WITH TIME ZONE,
-    status VARCHAR(20) CHECK (status IN ('present', 'absent', 'late', 'early_leave')),
-    notes TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(user_id, date)
-);
+```typescript
+interface AttendanceRecord {
+  id: string;                    // 考勤记录ID
+  userId: string;                // 用户ID
+  date: string;                  // 考勤日期
+  checkInTime?: string;          // 签到时间
+  checkOutTime?: string;         // 签退时间
+  status: 'present' | 'absent' | 'late' | 'early_leave'; // 考勤状态
+  notes?: string;                // 备注
+  createdAt: string;             // 创建时间
+  updatedAt: string;             // 更新时间
+}
+
+interface BusinessHours {
+  workStartTime: string;         // 上班时间，格式: "09:00"
+  workEndTime: string;           // 下班时间，格式: "18:00"
+  lateThreshold: number;         // 迟到容忍时间（分钟）
+  earlyLeaveThreshold: number;   // 早退容忍时间（分钟）
+  workDays: number[];            // 工作日，0=周日，1=周一...6=周六
+}
 ```
 
-**考勤状态说明：**
-- `present`: 正常出勤
-- `absent`: 缺勤
-- `late`: 迟到
-- `early_leave`: 早退
+## 数据存储方案
 
-## 数据关系图
+### LocalStorage 存储结构
 
+系统使用LocalStorage进行数据持久化，存储键名规范：
+
+```typescript
+const STORAGE_KEYS = {
+  CUSTOMERS: 'cat_system_customers',        // 客户数据
+  ORDERS: 'cat_system_orders',              // 订单数据
+  PRODUCTS: 'cat_system_products',          // 产品数据
+  KNOWLEDGE: 'cat_system_knowledge',        // 知识库数据
+  ATTENDANCE: 'cat_system_attendance',      // 考勤数据
+  USERS: 'cat_system_users',                // 用户数据
+  ANNOUNCEMENTS: 'cat_system_announcements', // 公告数据
+  AFTER_SALES: 'cat_system_after_sales',    // 售后记录
+  SETTINGS: 'cat_system_settings'           // 系统设置
+};
 ```
-users (1) ←→ (N) teams
-  ↓ (1:N)
-customers
-  ↓ (1:N)
-customer_files
 
-customers (1) ←→ (N) orders
-  ↓ (1:N)
-order_products (N) ←→ (1) products
+### 数据管理工具类
 
-orders (1) ←→ (1) installment_plans
-  ↓ (1:N)
-payments
-
-users (1) ←→ (N) knowledge_base
-users (1) ←→ (N) announcements
-users (1) ←→ (N) attendance_records
-users (1) ←→ (N) sales_performance
+```typescript
+class LocalStorageManager {
+  // 通用存储方法
+  setItem<T>(key: string, value: T): void;
+  getItem<T>(key: string): T | null;
+  removeItem(key: string): void;
+  clear(): void;
+  generateId(): string;
+}
 ```
 
 ## 业务逻辑说明
@@ -562,189 +428,135 @@ users (1) ←→ (N) sales_performance
 | 售后服务 | ✅ | ❌ | ✅ |
 | 收支明细 | ✅ | ❌ | ❌ |
 | 系统设置 | ✅ | ❌ | ❌ |
+| 销售业绩 | ✅ | ✅ (查看) | ❌ |
 
 ### 2. 客户类型业务逻辑
 
-**零售客户：**
+**零售客户特点：**
 - 一次性付款或发货补尾款
 - 重点关注猫咪信息和交付流程
 - 财务计算：利润 = 卖价 - 成本 - 运费
+- 利润率 = (利润 / 卖价) × 100%
 
-**分期客户：**
-- 分期付款管理
-- 逾期提醒机制
-- 合同管理
-- 财务计算：月毛利、回本期等
+**分期客户特点：**
+- 分期付款管理和跟踪
+- 逾期提醒和催款机制
+- 合同管理和签约状态
+- 财务计算：月毛利、回本期等复杂计算
 
 ### 3. 逾期提醒逻辑
 
 ```typescript
-// 逾期状态计算
-interface PaymentStatus {
-  status: 'normal' | 'reminder' | 'overdue';
-  message: string;
-  overdueCount?: number;
-  nextDueDate?: string;
-}
+// 逾期状态计算逻辑
+const calculatePaymentStatus = (customer: Customer): PaymentStatus => {
+  if (customer.customerType !== 'installment' || !customer.installmentPayments) {
+    return { status: 'normal', message: '正常' };
+  }
 
-// 逾期判断逻辑：
-// 1. 超过还款日期且未付款 = 逾期
-// 2. 3天内到期且未付款 = 待催款
-// 3. 其他情况 = 正常
+  const today = new Date();
+  
+  // 检查逾期付款
+  const overduePayments = customer.installmentPayments.filter(payment => {
+    if (payment.isPaid) return false;
+    const dueDate = new Date(payment.dueDate);
+    return dueDate < today;
+  });
+
+  if (overduePayments.length > 0) {
+    return {
+      status: 'overdue',
+      overdueCount: overduePayments.length,
+      message: `逾期 ${overduePayments.length} 期`
+    };
+  }
+
+  // 检查3天内到期的付款
+  const upcomingPayments = customer.installmentPayments.filter(payment => {
+    if (payment.isPaid) return false;
+    const dueDate = new Date(payment.dueDate);
+    const threeDaysLater = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
+    return dueDate >= today && dueDate <= threeDaysLater;
+  });
+
+  if (upcomingPayments.length > 0) {
+    return {
+      status: 'reminder',
+      nextDueDate: upcomingPayments[0].dueDate,
+      message: '待催款'
+    };
+  }
+
+  return { status: 'normal', message: '还款正常' };
+};
 ```
 
 ### 4. 知识库权限逻辑
 
 - 所有用户可以查看知识库
-- 用户只能编辑自己创建的条目
+- 用户只能编辑自己创建的条目（通过 `createdBy` 字段控制）
 - 管理员可以编辑所有条目
-- 通过 `created_by` 字段控制权限
+- 浏览量自动统计和更新
 
 ### 5. 公告可见性逻辑
 
-```sql
--- 公告可见性查询示例
-SELECT * FROM announcements 
-WHERE visible_to = 'all' 
-   OR (visible_to = 'sales' AND user_role = 'sales')
-   OR (visible_to = 'after_sales' AND user_role = 'after_sales')
-   OR user_role = 'admin';
+```typescript
+// 公告可见性过滤逻辑
+const filterAnnouncementsByRole = (announcements: Announcement[], userRole: string) => {
+  return announcements.filter(announcement => 
+    announcement.visible_to === 'all' || 
+    announcement.visible_to === userRole ||
+    userRole === 'admin'
+  );
+};
 ```
 
-## API 接口设计建议
+## 权限控制机制
 
-### 1. 认证接口
+### 1. 登录验证码系统
 
 ```typescript
-// POST /api/auth/login
-interface LoginRequest {
-  username: string;
-  password: string;
-  verificationCode?: string;
+interface SystemSettings {
+  requireVerificationCode: boolean;    // 是否需要验证码
+  currentVerificationCode: string;     // 当前验证码
+  codeGeneratedAt: Date | null;        // 验证码生成时间
+  codeValidUntil: Date | null;         // 验证码有效期
 }
 
-interface LoginResponse {
-  success: boolean;
-  user?: User;
-  token?: string;
-  message: string;
-  requireVerificationCode?: boolean;
-}
+// 验证码验证逻辑
+const isVerificationCodeValid = (code: string, settings: SystemSettings): boolean => {
+  if (!settings.currentVerificationCode || !settings.codeValidUntil) {
+    return false;
+  }
+  
+  const now = new Date();
+  return code === settings.currentVerificationCode && now <= settings.codeValidUntil;
+};
 ```
 
-### 2. 客户管理接口
+### 2. 组件级权限控制
 
 ```typescript
-// GET /api/customers
-interface GetCustomersQuery {
-  page?: number;
-  limit?: number;
-  search?: string;
-  customerType?: 'retail' | 'installment';
-  tags?: string[];
-}
+// 权限检查Hook
+const usePermission = (requiredRole: string[]) => {
+  const { user } = useAuth();
+  return user && requiredRole.includes(user.role);
+};
 
-// POST /api/customers
-interface CreateCustomerRequest {
-  // Customer 接口的所有字段（除了 id, createdAt, files, orders）
-}
-
-// PUT /api/customers/:id
-interface UpdateCustomerRequest {
-  // 部分 Customer 字段
-}
-```
-
-### 3. 分期付款接口
-
-```typescript
-// GET /api/customers/:id/installments
-interface InstallmentResponse {
-  customerId: string;
-  payments: InstallmentPayment[];
-  summary: {
-    totalAmount: number;
-    paidAmount: number;
-    remainingAmount: number;
-    overdueCount: number;
-  };
-}
-
-// POST /api/installments/:id/pay
-interface PayInstallmentRequest {
-  paymentId: string;
-  amount: number;
-  paidDate: string;
-}
-```
-
-### 4. 知识库接口
-
-```typescript
-// GET /api/knowledge
-interface GetKnowledgeQuery {
-  category?: string;
-  search?: string;
-  createdBy?: string; // 筛选自己创建的
-}
-
-// POST /api/knowledge
-interface CreateKnowledgeRequest {
-  question: string;
-  answer: string;
-  category: string;
-  tags: string[];
-  images?: string[];
-}
-```
-
-### 5. 公告接口
-
-```typescript
-// GET /api/announcements
-interface GetAnnouncementsQuery {
-  visibleTo?: 'sales' | 'after_sales' | 'all';
-  priority?: 'normal' | 'important' | 'urgent';
-}
-
-// POST /api/announcements (仅管理员)
-interface CreateAnnouncementRequest {
-  title: string;
-  content: string;
-  visibleTo: 'sales' | 'after_sales' | 'all';
-  priority: 'normal' | 'important' | 'urgent';
-}
+// 使用示例
+const SettingsView = () => {
+  const hasPermission = usePermission(['admin']);
+  
+  if (!hasPermission) {
+    return <AccessDenied />;
+  }
+  
+  return <SettingsContent />;
+};
 ```
 
 ## 数据验证规则
 
-### 1. 用户数据验证
-
-```typescript
-const userValidation = {
-  username: {
-    required: true,
-    minLength: 3,
-    maxLength: 50,
-    pattern: /^[a-zA-Z0-9_]+$/
-  },
-  email: {
-    required: true,
-    format: 'email'
-  },
-  name: {
-    required: true,
-    minLength: 2,
-    maxLength: 100
-  },
-  role: {
-    required: true,
-    enum: ['admin', 'sales', 'after_sales']
-  }
-};
-```
-
-### 2. 客户数据验证
+### 1. 客户数据验证
 
 ```typescript
 const customerValidation = {
@@ -755,10 +567,10 @@ const customerValidation = {
   },
   phone: {
     required: true,
-    pattern: /^1[3-9]\d{9}$/ // 中国手机号格式
+    pattern: /^1[3-9]\d{9}$/  // 中国手机号格式
   },
-  gender: {
-    enum: ['male', 'female']
+  email: {
+    format: 'email'
   },
   customerType: {
     enum: ['retail', 'installment']
@@ -766,34 +578,14 @@ const customerValidation = {
 };
 ```
 
-### 3. 订单数据验证
-
-```typescript
-const orderValidation = {
-  amount: {
-    required: true,
-    min: 0,
-    type: 'decimal'
-  },
-  paymentMethod: {
-    required: true,
-    enum: ['full', 'installment']
-  },
-  status: {
-    required: true,
-    enum: ['pending_payment', 'paid', 'pending_shipment', 'shipped', 'completed', 'cancelled']
-  }
-};
-```
-
-### 4. 分期付款验证
+### 2. 分期付款验证
 
 ```typescript
 const installmentValidation = {
   installmentAmount: {
     required: true,
     min: 0,
-    type: 'decimal'
+    type: 'number'
   },
   installmentCount: {
     required: true,
@@ -809,153 +601,228 @@ const installmentValidation = {
 };
 ```
 
+### 3. 知识库验证
+
+```typescript
+const knowledgeValidation = {
+  question: {
+    required: true,
+    minLength: 5,
+    maxLength: 200
+  },
+  answer: {
+    required: true,
+    minLength: 10
+  },
+  category: {
+    required: true,
+    enum: ['选购指南', '健康护理', '饲养技巧', '品种介绍', '常见问题', '售后服务']
+  }
+};
+```
+
 ## 性能优化建议
 
-### 1. 数据库索引
-
-```sql
--- 客户表索引
-CREATE INDEX idx_customers_phone ON customers(phone);
-CREATE INDEX idx_customers_assigned_sales ON customers(assigned_sales);
-CREATE INDEX idx_customers_created_at ON customers(created_at);
-
--- 订单表索引
-CREATE INDEX idx_orders_customer_id ON orders(customer_id);
-CREATE INDEX idx_orders_order_date ON orders(order_date);
-CREATE INDEX idx_orders_status ON orders(status);
-
--- 分期付款索引
-CREATE INDEX idx_payments_due_date ON payments(due_date);
-CREATE INDEX idx_payments_status ON payments(status);
-
--- 知识库索引
-CREATE INDEX idx_knowledge_base_category ON knowledge_base(category);
-CREATE INDEX idx_knowledge_base_created_by ON knowledge_base(created_by);
-```
-
-### 2. 查询优化
-
-```sql
--- 逾期付款查询优化
-SELECT p.*, c.name as customer_name, c.phone
-FROM payments p
-JOIN installment_plans ip ON p.installment_plan_id = ip.id
-JOIN orders o ON ip.order_id = o.id
-JOIN customers c ON o.customer_id = c.id
-WHERE p.status = 'pending' 
-  AND p.due_date < CURRENT_DATE
-ORDER BY p.due_date ASC;
-
--- 销售业绩统计查询
-SELECT 
-  u.name,
-  t.name as team_name,
-  SUM(sp.revenue) as total_revenue,
-  SUM(sp.orders) as total_orders
-FROM sales_performance sp
-JOIN users u ON sp.user_id = u.id
-LEFT JOIN teams t ON sp.team_id = t.id
-WHERE sp.date >= '2024-01-01'
-GROUP BY u.id, u.name, t.name
-ORDER BY total_revenue DESC;
-```
-
-### 3. 缓存策略
+### 1. 数据缓存策略
 
 ```typescript
-// Redis 缓存键设计
-const cacheKeys = {
-  user: (id: string) => `user:${id}`,
-  customer: (id: string) => `customer:${id}`,
-  customerList: (page: number, filters: string) => `customers:${page}:${filters}`,
-  knowledgeBase: (category: string) => `knowledge:${category}`,
-  announcements: (role: string) => `announcements:${role}`,
-  overduePayments: () => `overdue_payments`,
-  salesStats: (date: string) => `sales_stats:${date}`
-};
-
-// 缓存过期时间
-const cacheTTL = {
-  user: 3600,        // 1小时
-  customer: 1800,    // 30分钟
-  customerList: 300, // 5分钟
-  knowledgeBase: 7200, // 2小时
-  announcements: 600,  // 10分钟
-  overduePayments: 300, // 5分钟
-  salesStats: 86400    // 24小时
-};
-```
-
-## 数据迁移和备份
-
-### 1. 数据迁移脚本
-
-```sql
--- 迁移脚本示例：添加新字段
-ALTER TABLE customers ADD COLUMN IF NOT EXISTS customer_type VARCHAR(20) DEFAULT 'retail';
-ALTER TABLE customers ADD COLUMN IF NOT EXISTS installment_data JSONB DEFAULT '{}';
-
--- 数据迁移
-UPDATE customers 
-SET customer_type = 'installment' 
-WHERE id IN (
-  SELECT DISTINCT c.id 
-  FROM customers c 
-  JOIN orders o ON c.id = o.customer_id 
-  WHERE o.payment_method = 'installment'
-);
-```
-
-### 2. 备份策略
-
-```bash
-# 每日备份脚本
-#!/bin/bash
-DATE=$(date +%Y%m%d)
-pg_dump -h $DB_HOST -U $DB_USER -d $DB_NAME > backup_$DATE.sql
-aws s3 cp backup_$DATE.sql s3://your-backup-bucket/daily/
-
-# 保留最近30天的备份
-find /backup -name "backup_*.sql" -mtime +30 -delete
-```
-
-## 安全考虑
-
-### 1. 数据脱敏
-
-```typescript
-// 敏感数据脱敏
-const maskSensitiveData = {
-  phone: (phone: string) => phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2'),
-  email: (email: string) => email.replace(/(.{2}).*(@.*)/, '$1***$2'),
-  idCard: (id: string) => id.replace(/(\d{6})\d{8}(\d{4})/, '$1********$2')
-};
-```
-
-### 2. SQL 注入防护
-
-```typescript
-// 使用参数化查询
-const getUserByUsername = async (username: string) => {
-  const query = 'SELECT * FROM users WHERE username = $1 AND is_active = true';
-  return await db.query(query, [username]);
-};
-```
-
-### 3. 权限验证中间件
-
-```typescript
-const checkPermission = (requiredRole: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const userRole = req.user?.role;
-    if (!userRole || !requiredRole.includes(userRole)) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+// 内存缓存管理
+class DataCache {
+  private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+  
+  set(key: string, data: any, ttl: number = 300000) { // 默认5分钟
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+  }
+  
+  get(key: string) {
+    const item = this.cache.get(key);
+    if (!item) return null;
+    
+    if (Date.now() - item.timestamp > item.ttl) {
+      this.cache.delete(key);
+      return null;
     }
-    next();
+    
+    return item.data;
+  }
+}
+```
+
+### 2. 数据分页和虚拟滚动
+
+```typescript
+// 分页配置
+const PAGINATION_CONFIG = {
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 100,
+  VIRTUAL_SCROLL_THRESHOLD: 1000  // 超过1000条记录启用虚拟滚动
+};
+
+// 数据分页Hook
+const usePagination = <T>(data: T[], pageSize: number = PAGINATION_CONFIG.DEFAULT_PAGE_SIZE) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  const totalPages = Math.ceil(data.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const currentData = data.slice(startIndex, endIndex);
+  
+  return {
+    currentData,
+    currentPage,
+    totalPages,
+    setCurrentPage,
+    hasNext: currentPage < totalPages,
+    hasPrev: currentPage > 1
   };
+};
+```
+
+### 3. 搜索和过滤优化
+
+```typescript
+// 防抖搜索Hook
+const useDebounceSearch = (searchTerm: string, delay: number = 300) => {
+  const [debouncedTerm, setDebouncedTerm] = useState(searchTerm);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedTerm(searchTerm);
+    }, delay);
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm, delay]);
+  
+  return debouncedTerm;
+};
+
+// 多字段搜索
+const searchCustomers = (customers: Customer[], searchTerm: string) => {
+  if (!searchTerm) return customers;
+  
+  const term = searchTerm.toLowerCase();
+  return customers.filter(customer => 
+    customer.name.toLowerCase().includes(term) ||
+    customer.phone.includes(term) ||
+    customer.wechat?.toLowerCase().includes(term) ||
+    customer.address?.toLowerCase().includes(term) ||
+    customer.tags.some(tag => tag.toLowerCase().includes(term))
+  );
+};
+```
+
+### 4. LocalStorage 优化
+
+```typescript
+// 数据压缩存储
+const compressData = (data: any): string => {
+  try {
+    return JSON.stringify(data);
+  } catch (error) {
+    console.error('Data compression failed:', error);
+    return '';
+  }
+};
+
+// 批量操作优化
+const batchUpdateCustomers = (updates: Array<{ id: string; data: Partial<Customer> }>) => {
+  const customers = storage.getItem<Customer[]>(STORAGE_KEYS.CUSTOMERS) || [];
+  
+  const updatedCustomers = customers.map(customer => {
+    const update = updates.find(u => u.id === customer.id);
+    return update ? { ...customer, ...update.data } : customer;
+  });
+  
+  storage.setItem(STORAGE_KEYS.CUSTOMERS, updatedCustomers);
+};
+```
+
+## 数据迁移和版本控制
+
+### 1. 数据版本管理
+
+```typescript
+interface DataVersion {
+  version: string;
+  migratedAt: string;
+  changes: string[];
+}
+
+const DATA_VERSION = '1.0.0';
+
+// 数据迁移检查
+const checkDataMigration = () => {
+  const currentVersion = storage.getItem<string>('data_version');
+  
+  if (!currentVersion || currentVersion !== DATA_VERSION) {
+    performDataMigration(currentVersion, DATA_VERSION);
+    storage.setItem('data_version', DATA_VERSION);
+  }
+};
+```
+
+### 2. 数据备份和恢复
+
+```typescript
+// 数据导出
+const exportAllData = () => {
+  const allData = {
+    customers: storage.getItem(STORAGE_KEYS.CUSTOMERS),
+    orders: storage.getItem(STORAGE_KEYS.ORDERS),
+    products: storage.getItem(STORAGE_KEYS.PRODUCTS),
+    knowledge: storage.getItem(STORAGE_KEYS.KNOWLEDGE),
+    announcements: storage.getItem(STORAGE_KEYS.ANNOUNCEMENTS),
+    exportedAt: new Date().toISOString(),
+    version: DATA_VERSION
+  };
+  
+  const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `cat_system_backup_${new Date().toISOString().split('T')[0]}.json`;
+  link.click();
+  
+  URL.revokeObjectURL(url);
+};
+
+// 数据导入
+const importData = (file: File) => {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target?.result as string);
+      
+      // 验证数据格式
+      if (validateImportData(data)) {
+        // 备份当前数据
+        const backup = exportAllData();
+        
+        // 导入新数据
+        Object.keys(STORAGE_KEYS).forEach(key => {
+          if (data[key.toLowerCase()]) {
+            storage.setItem(STORAGE_KEYS[key as keyof typeof STORAGE_KEYS], data[key.toLowerCase()]);
+          }
+        });
+        
+        alert('数据导入成功！');
+        window.location.reload();
+      } else {
+        alert('数据格式不正确！');
+      }
+    } catch (error) {
+      alert('数据导入失败：' + error.message);
+    }
+  };
+  reader.readAsText(file);
 };
 ```
 
 ---
 
-本文档为猫咪销售管理系统的完整数据结构说明，建议后端开发人员在实现时参照此提示进行开发，确保数据一致性和系统稳定性。
+本文档为猫咪销售管理系统的完整数据结构说明，建议开发人员在进行功能扩展和维护时参照此文档，确保数据一致性和系统稳定性。
