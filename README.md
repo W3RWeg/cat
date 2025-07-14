@@ -1,6 +1,6 @@
 # 猫咪销售管理系统 (Cat Sales Management System)
 
-一个专业的猫舍销售管理系统，帮助猫舍管理客户、知识库和团队，提供完整的销售流程和售后服务支持。
+一个专业的猫舍销售管理系统，帮助猫舍管理客户、知识库、团队和售后服务，提供完整的销售流程和财务管理支持。
 
 ![猫咪销售管理系统](https://images.pexels.com/photos/45201/kitty-cat-kitten-pet-45201.jpeg)
 
@@ -8,7 +8,7 @@
 
 ### 🔐 多角色权限管理
 - **管理员**：完整的系统访问权限，用户管理，系统设置，收支明细管理
-- **销售员**：客户管理、知识库访问、公告查看
+- **销售员**：客户管理、知识库访问、公告查看、销售业绩查看
 - **售后专员**：售后服务管理、客户回访、健康咨询、公告查看
 
 ### 👥 客户管理
@@ -17,12 +17,22 @@
 - 客户标签分类管理
 - 客户文件上传和管理（图片、视频、聊天记录）
 - 分期客户还款状态跟踪和逾期提醒
+- 完整的客户详情查看和编辑功能
+
+### 📊 数据分析仪表盘
+- 实时客户统计和营收数据
+- 销售趋势图表（最近6个月）
+- 客户城市分布圆饼图
+- 品种销售分布分析
+- 付款方式统计
+- 逾期付款提醒（管理员专用）
 
 ### 📚 知识库
 - 分类管理的问答系统
 - 支持图片和标签
 - 浏览量统计
 - 权限控制（用户只能编辑自己创建的内容，管理员可编辑所有内容）
+- 智能搜索和分类筛选
 
 ### 🛠️ 售后服务
 - 电话回访记录
@@ -31,19 +41,13 @@
 - 投诉处理
 - 客户反馈管理
 - 服务模板和检查清单
-
-### 📊 数据分析
-- 销售趋势图表
-- 品种销售分布
-- 付款方式分析
-- 实时统计数据
-- 逾期付款提醒（管理员专用）
+- 客户满意度评分
 
 ### 📢 公告管理
 - 系统公告发布
 - 按角色可见性设置（所有人、仅销售员、仅售后专员）
 - 公告优先级管理（普通、重要、紧急）
-- 公告横幅展示
+- 公告横幅展示和轮播
 
 ### 💰 收支明细
 - 月度收支记录管理
@@ -51,12 +55,21 @@
 - 支出项目和报销管理
 - 数据导出功能
 - 净收入计算
+- 可视化财务报表
+
+### 📋 分期打款记录
+- 分期客户合同管理
+- 还款进度跟踪
+- 逾期状态监控
+- 签约方式记录
+- e签宝合同状态
 
 ### ⚙️ 系统设置
 - 登录验证码管理
 - 安全策略配置
 - 用户权限管理
 - 团队管理
+- 营业时间设置
 
 ## 🚀 技术栈
 
@@ -65,16 +78,16 @@
 - **状态管理**：React Context API
 - **图标库**：Lucide React
 - **图表库**：Recharts
-- **后端服务**：Supabase (PostgreSQL + 认证服务)
+- **数据存储**：本地存储 (LocalStorage) + 模拟数据
 - **构建工具**：Vite
-- **部署平台**：Netlify
+- **代码规范**：ESLint + TypeScript
 
 ## 📋 快速开始
 
 ### 前提条件
 
 - Node.js 18+ 和 npm
-- Supabase 账户（用于数据库和认证）
+- 现代浏览器（Chrome、Firefox、Safari、Edge）
 
 ### 安装步骤
 
@@ -89,27 +102,12 @@ cd cat-sales-management
 npm install
 ```
 
-3. **配置环境变量**
-
-创建 `.env` 文件并添加以下内容：
-```env
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-```
-
-4. **运行数据库迁移**
-
-在 Supabase SQL 编辑器中运行 `supabase/migrations` 目录下的所有 SQL 文件：
-- `20250629073837_old_spire.sql` - 基础数据库架构
-- `20250707055942_golden_boat.sql` - 公告系统
-- `20250708080444_silent_math.sql` - 团队管理和销售业绩
-
-5. **启动开发服务器**
+3. **启动开发服务器**
 ```bash
 npm run dev
 ```
 
-6. **访问应用**
+4. **访问应用**
 
 打开浏览器访问 `http://localhost:5173`
 
@@ -119,7 +117,6 @@ npm run dev
 
 - **管理员**：admin / password123
 - **销售员**：sales1 / password123 (需要验证码)
-- **销售员**：sales2 / password123 (需要验证码)
 - **售后专员**：aftersales1 / password123 (需要验证码)
 
 > 注意：非管理员用户登录需要验证码，可由管理员在系统设置中生成。
@@ -138,6 +135,7 @@ cat-sales-management/
 │   │   ├── Customers/       # 客户管理组件
 │   │   ├── Dashboard/       # 仪表盘组件
 │   │   ├── Financial/       # 收支明细组件
+│   │   ├── InstallmentRecords/ # 分期记录组件
 │   │   ├── Knowledge/       # 知识库组件
 │   │   ├── Layout/          # 布局组件
 │   │   ├── SalesPerformance/# 销售业绩组件
@@ -147,10 +145,9 @@ cat-sales-management/
 │   ├── lib/                 # 工具库
 │   ├── types/               # TypeScript 类型定义
 │   ├── utils/               # 工具函数
+│   ├── data/                # 模拟数据
 │   ├── App.tsx              # 应用入口组件
 │   └── main.tsx             # 应用入口文件
-├── supabase/                # Supabase 配置和迁移
-│   └── migrations/          # 数据库迁移文件
 ├── .env                     # 环境变量
 ├── index.html               # HTML 模板
 ├── package.json             # 项目依赖
@@ -159,26 +156,24 @@ cat-sales-management/
 └── vite.config.ts           # Vite 配置
 ```
 
-## 🗄️ 数据库架构
+## 🗄️ 数据架构
 
-系统使用 PostgreSQL 数据库（通过 Supabase 提供），包含以下主要表：
+系统使用本地存储和模拟数据，包含以下主要数据结构：
 
-### 核心表
-- **users** - 系统用户和权限管理
-- **teams** - 销售团队管理
-- **customers** - 客户信息
-- **customer_files** - 客户文件
-- **products** - 产品信息
-- **orders** - 订单管理
-- **order_products** - 订单产品关联
+### 核心数据类型
+- **User** - 系统用户和权限管理
+- **Customer** - 客户信息（支持零售和分期两种类型）
+- **Order** - 订单管理
+- **Product** - 产品信息
+- **KnowledgeBase** - 知识库问答
+- **AfterSalesRecord** - 售后服务记录
+- **Announcement** - 系统公告
 
-### 功能表
-- **knowledge_base** - 知识库
-- **announcements** - 系统公告
-- **attendance_records** - 考勤记录
-- **sales_performance** - 销售业绩
-- **installment_plans** - 分期付款计划
-- **payments** - 付款记录
+### 业务数据类型
+- **InstallmentPayment** - 分期还款记录
+- **CustomerFile** - 客户文件
+- **SalesPerformance** - 销售业绩
+- **AttendanceRecord** - 考勤记录
 
 ## 👥 用户角色和权限
 
@@ -198,6 +193,7 @@ cat-sales-management/
 - 知识库访问（只能编辑自己创建的内容）
 - 公告查看（根据可见性设置）
 - 销售业绩查看
+- 分期记录管理
 
 ### 🎧 售后专员 (After Sales)
 - 售后服务记录管理
@@ -216,13 +212,13 @@ cat-sales-management/
 
 ### 权限控制
 - 基于角色的访问控制 (RBAC)
-- 前端和后端双重权限验证
+- 前端权限验证
 - 操作级别的权限检查
 
 ### 数据安全
-- 行级安全策略 (RLS)
+- 本地数据存储
 - 用户数据隔离
-- 安全的密码存储
+- 安全的密码验证
 
 ## 📊 主要功能模块
 
@@ -230,6 +226,7 @@ cat-sales-management/
 - 客户数量统计
 - 营收数据展示
 - 销售趋势图表
+- 客户城市分布圆饼图
 - 品种销售分布
 - 付款方式分析
 - 逾期付款提醒（管理员专用）
@@ -240,6 +237,7 @@ cat-sales-management/
 - 客户文件上传（图片、视频、文档）
 - 分期还款状态跟踪
 - 客户标签和备注管理
+- 客户详情查看
 
 ### 知识库
 - 问答内容管理
@@ -259,7 +257,7 @@ cat-sales-management/
 - 公告发布和编辑
 - 角色可见性控制
 - 优先级设置
-- 横幅展示
+- 横幅展示和轮播
 
 ### 收支明细
 - 月度收支记录
@@ -268,21 +266,34 @@ cat-sales-management/
 - 报销状态跟踪
 - 数据导出功能
 
+### 分期打款记录
+- 分期客户合同管理
+- 还款进度可视化
+- 逾期状态监控
+- 签约信息记录
+
 ## 🚀 部署
 
-### Netlify 部署
+### 构建生产版本
 
-1. 连接 GitHub 仓库
-2. 设置构建命令：`npm run build`
-3. 设置发布目录：`dist`
-4. 添加环境变量：`VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`
-
-### 环境变量配置
-
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```bash
+npm run build
 ```
+
+### 预览生产版本
+
+```bash
+npm run preview
+```
+
+### 部署到静态托管服务
+
+构建完成后，将 `dist` 目录部署到任何静态托管服务：
+
+- **Netlify**: 连接 GitHub 仓库，设置构建命令为 `npm run build`，发布目录为 `dist`
+- **Vercel**: 导入项目，自动检测 Vite 配置
+- **GitHub Pages**: 使用 GitHub Actions 自动部署
+- **其他静态托管**: 上传 `dist` 目录内容
 
 ## 🛠️ 开发指南
 
@@ -305,18 +316,20 @@ npm run preview
 npm run lint
 ```
 
-### 数据库迁移
-
-1. 在 Supabase 项目中创建新的 SQL 查询
-2. 按顺序执行 `supabase/migrations` 目录下的迁移文件
-3. 确保所有表的 RLS 策略正确配置
-
 ### 添加新功能
 
 1. 在 `src/types/index.ts` 中定义相关类型
-2. 在 `src/hooks/useDatabase.ts` 中添加数据操作方法
+2. 在 `src/hooks/useLocalStorage.ts` 中添加数据操作方法
 3. 创建相应的 React 组件
 4. 更新路由和权限控制
+
+### 代码规范
+
+- 使用 TypeScript 进行类型检查
+- 遵循 ESLint 规则
+- 使用 Tailwind CSS 进行样式开发
+- 组件采用函数式组件 + Hooks
+- 保持组件单一职责原则
 
 ## 🤝 贡献指南
 
@@ -335,6 +348,18 @@ MIT License
 如有任何问题或建议，请联系：
 - 邮箱：admin@catstore.com
 - GitHub Issues：[提交问题](https://github.com/yourusername/cat-sales-management/issues)
+
+## 🔄 更新日志
+
+### v1.0.0 (2024-07-01)
+- ✨ 完整的客户管理系统
+- 📊 数据分析仪表盘
+- 🛠️ 售后服务管理
+- 📚 知识库系统
+- 📢 公告管理
+- 💰 收支明细管理
+- 📋 分期打款记录
+- 🔐 多角色权限控制
 
 ---
 
