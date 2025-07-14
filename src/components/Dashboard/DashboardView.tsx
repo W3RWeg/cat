@@ -293,11 +293,13 @@ const DashboardView: React.FC = () => {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="space-y-6">
+        {/* First Row - Sales Trend and City Distribution */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sales Trend */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">销售趋势</h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={350}>
             <LineChart data={salesData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="name" stroke="#6b7280" />
@@ -331,14 +333,14 @@ const DashboardView: React.FC = () => {
           <h3 className="text-lg font-semibold text-gray-800 mb-4">客户城市分布</h3>
           {cityDistributionData.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                   <Pie
                     data={cityDistributionData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={40}
-                    outerRadius={100}
+                    innerRadius={50}
+                    outerRadius={110}
                     paddingAngle={2}
                     dataKey="value"
                   >
@@ -354,14 +356,9 @@ const DashboardView: React.FC = () => {
                     }}
                     formatter={(value, name) => [`${value}位客户`, '数量']}
                   />
-                  <Legend 
-                    verticalAlign="bottom" 
-                    height={36}
-                    formatter={(value) => value}
-                  />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="mt-4 grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
+              <div className="mt-4 grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
                 {cityDistributionData.slice(0, 8).map((item, index) => (
                   <div key={index} className="flex items-center justify-between text-sm">
                     <div className="flex items-center">
@@ -392,19 +389,23 @@ const DashboardView: React.FC = () => {
             </div>
           )}
         </div>
+        </div>
+
+        {/* Second Row - Breed Distribution and Payment Methods */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Breed Distribution */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">品种销售分布</h3>
           {breedData.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                   <Pie
                     data={breedData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
+                    innerRadius={50}
+                    outerRadius={110}
                     paddingAngle={5}
                     dataKey="value"
                   >
@@ -445,7 +446,7 @@ const DashboardView: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">付款方式分布</h3>
           {paymentMethodData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={350}>
               <BarChart data={paymentMethodData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="name" stroke="#6b7280" />
@@ -470,6 +471,7 @@ const DashboardView: React.FC = () => {
               <p>暂无订单数据</p>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
