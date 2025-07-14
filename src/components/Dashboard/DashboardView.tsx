@@ -354,12 +354,12 @@ const DashboardView: React.FC = () => {
                       border: '1px solid #e5e7eb',
                       borderRadius: '8px'
                     }}
-                    formatter={(value, name, props) => {
+                    formatter={(value) => {
                       const total = cityDistributionData.reduce((sum, item) => sum + item.value, 0);
                       const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
                       return [`${value}位客户 (${percentage}%)`, '数量'];
                     }}
-                    labelFormatter={(label) => `${label}市`}
+                    labelFormatter={(label) => `${label}`}
                   />
                 </PieChart>
               </ResponsiveContainer>
