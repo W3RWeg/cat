@@ -1,8 +1,7 @@
 import React from 'react';
 import { Users, DollarSign, TrendingUp, AlertTriangle, Trash2 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import StatsCard from './StatsCard';
-import CustomerRegionStats from './CustomerMap';
 import { useCustomers } from '../../hooks/useDatabase';
 import { useAuth } from '../../context/AuthContext';
 import { Customer, PaymentStatus } from '../../types';
@@ -122,6 +121,54 @@ const DashboardView: React.FC = () => {
       orders: monthOrders
     });
   }
+
+  // 生成城市分布数据
+  const getCityDistribution = () => {
+    const cityCount: Record<string, number> = {};
+    
+    safeCustomers.forEach(customer => {
+      if (customer.address) {
+        // 提取城市信息
+        let city = '其他';
+        
+        // 主要城市匹配
+        const majorCities = [
+          '北京', '上海', '天津', '重庆',
+          '广州', '深圳', '杭州', '南京', '苏州',
+          '成都', '武汉', '西安', '郑州', '济南',
+          '青岛', '大连', '宁波', '厦门', '福州',
+          '长沙', '石家庄', '哈尔滨', '长春', '沈阳',
+          '昆明', '南宁', '贵阳', '兰州', '银川',
+          '西宁', '乌鲁木齐', '拉萨', '呼和浩特'
+        ];
+        
+        for (const majorCity of majorCities) {
+          if (customer.address.includes(majorCity)) {
+            city = majorCity;
+            break;
+          }
+        }
+        
+        cityCount[city] = (cityCount[city] || 0) + 1;
+      }
+    });
+    
+    // 转换为图表数据格式，按数量排序
+    const cityData = Object.entries(cityCount)
+      .map(([city, count]) => ({ name: city, value: count }))
+      .sort((a, b) => b.value - a.value);
+    
+    return cityData;
+  };
+
+  const cityDistributionData = getCityDistribution();
+
+  // 为城市分布图表生成颜色
+  const CITY_COLORS = [
+    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+    '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6366F1',
+    '#14B8A6', '#F43F5E', '#A855F7', '#22C55E', '#EAB308'
+  ];
 
   // 模拟品种销售分布数据
   const breedData = [
@@ -246,15 +293,7 @@ const DashboardView: React.FC = () => {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 gap-6">
-        {/* Customer Region Statistics */}
-        <div>
-          <CustomerRegionStats customers={safeCustomers} />
-        </div>
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sales Trend */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">销售趋势</h3>
@@ -287,6 +326,72 @@ const DashboardView: React.FC = () => {
           </ResponsiveContainer>
         </div>
 
+        {/* City Distribution */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">客户城市分布</h3>
+          {cityDistributionData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={cityDistributionData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {cityDistributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={CITY_COLORS[index % CITY_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px'
+                    }}
+                    formatter={(value, name) => [`${value}位客户`, '数量']}
+                  />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={36}
+                    formatter={(value) => value}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-4 grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
+                {cityDistributionData.slice(0, 8).map((item, index) => (
+                  <div key={index} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center">
+                      <div 
+                        className="w-3 h-3 rounded-full mr-2" 
+                        style={{ backgroundColor: CITY_COLORS[index % CITY_COLORS.length] }}
+                      />
+                      <span className="text-gray-700">{item.name}</span>
+                    </div>
+                    <span className="font-medium text-gray-900">{item.value}位</span>
+                  </div>
+                ))}
+                {cityDistributionData.length > 8 && (
+                  <div className="text-xs text-gray-500 text-center pt-2 border-t">
+                    还有 {cityDistributionData.length - 8} 个城市...
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-64 text-gray-500">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-gray-400" />
+                </div>
+                <p>暂无客户地址数据</p>
+              </div>
+            </div>
+          )}
+        </div>
         {/* Breed Distribution */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">品种销售分布</h3>
