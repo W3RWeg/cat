@@ -13,6 +13,7 @@ const CustomersView: React.FC = () => {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [filterTag, setFilterTag] = useState<string>('all');
   const [filterCustomerType, setFilterCustomerType] = useState<string>('all');
+  const [filterSalesPerson, setFilterSalesPerson] = useState<string>('all');
   const [filterOrderDateStart, setFilterOrderDateStart] = useState<string>('');
   const [filterOrderDateEnd, setFilterOrderDateEnd] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -25,6 +26,9 @@ const CustomersView: React.FC = () => {
   const safeCustomers = Array.isArray(customers) ? customers : [];
   
   const allTags = ['all', ...Array.from(new Set(safeCustomers.flatMap(c => c.tags || [])))];
+  
+  // 获取所有销售员列表
+  const allSalesPersons = ['all', ...Array.from(new Set(safeCustomers.map(c => c.assignedSales || c.salesPerson).filter(Boolean)))];
 
   const filteredCustomers = safeCustomers.filter(c => {
     const matchesTag = filterTag === 'all' || (c.tags || []).includes(filterTag);
@@ -32,6 +36,10 @@ const CustomersView: React.FC = () => {
     const matchesCustomerType = filterCustomerType === 'all' || 
       (filterCustomerType === 'retail' && c.customerType === 'retail') ||
       (filterCustomerType === 'installment' && c.customerType === 'installment');
+    
+    const matchesSalesPerson = filterSalesPerson === 'all' || 
+      c.assignedSales === filterSalesPerson || 
+      c.salesPerson === filterSalesPerson;
     
     const matchesOrderDate = (() => {
       if (!filterOrderDateStart && !filterOrderDateEnd) return true;
@@ -53,7 +61,7 @@ const CustomersView: React.FC = () => {
       c.occupation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.notes?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesTag && matchesCustomerType && matchesOrderDate && matchesSearch;
+    return matchesTag && matchesCustomerType && matchesSalesPerson && matchesOrderDate && matchesSearch;
   });
 
   const handleAddCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt' | 'files' | 'orders'>) => {
@@ -235,6 +243,22 @@ const CustomersView: React.FC = () => {
             </select>
           </div>
           
+          {/* 销售员过滤 */}
+          <div className="flex items-center">
+            <CreditCard className="w-4 h-4 mr-2 text-gray-500" />
+            <select
+              value={filterSalesPerson}
+              onChange={(e) => setFilterSalesPerson(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {allSalesPersons.map(salesPerson => (
+                <option key={salesPerson} value={salesPerson}>
+                  {salesPerson === 'all' ? '全部销售员' : salesPerson}
+                </option>
+              ))}
+            </select>
+          </div>
+          
           {/* 订单日期过滤 */}
           <div className="flex items-center space-x-2">
             <Calendar className="w-4 h-4 text-gray-500" />
@@ -271,7 +295,7 @@ const CustomersView: React.FC = () => {
         </div>
 
         {/* 过滤器状态显示 */}
-        {(filterTag !== 'all' || filterCustomerType !== 'all' || filterOrderDateStart || filterOrderDateEnd) && (
+        {(filterTag !== 'all' || filterCustomerType !== 'all' || filterSalesPerson !== 'all' || filterOrderDateStart || filterOrderDateEnd) && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4 text-sm">
@@ -287,6 +311,11 @@ const CustomersView: React.FC = () => {
                           filterCustomerType === 'installment' ? '分期客户' : '未设置类型'}
                   </span>
                 )}
+                {filterSalesPerson !== 'all' && (
+                  <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-xs">
+                    销售员: {filterSalesPerson}
+                  </span>
+                )}
                 {(filterOrderDateStart || filterOrderDateEnd) && (
                   <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs">
                     订单日期: {filterOrderDateStart || '不限'} ~ {filterOrderDateEnd || '不限'}
@@ -300,6 +329,7 @@ const CustomersView: React.FC = () => {
                 onClick={() => {
                   setFilterTag('all');
                   setFilterCustomerType('all');
+                  setFilterSalesPerson('all');
                   setFilterOrderDateStart('');
                   setFilterOrderDateEnd('');
                 }}
@@ -366,14 +396,20 @@ const CustomersView: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-gray-800 mb-2">暂无客户数据</h3>
             <p className="text-gray-600 mb-4">
-              {filterTag === 'all' && filterCustomerType === 'all' && !filterOrderDateStart && !filterOrderDateEnd
+              {filterTag === 'all' && filterCustomerType === 'all' && filterSalesPerson === 'all' && !filterOrderDateStart && !filterOrderDateEnd
                 ? '还没有添加任何客户' 
                 : '没有找到符合筛选条件的客户'}
             </p>
             <p className="text-sm text-gray-500 mb-4">
               尝试调整筛选条件或
-              <button 
-                onClick={() => { setFilterTag('all'); setFilterCustomerType('all'); setFilterOrderDateStart(''); setFilterOrderDateEnd(''); }}
+              <button
+                onClick={() => { 
+                  setFilterTag('all'); 
+                  setFilterCustomerType('all'); 
+                  setFilterSalesPerson('all');
+                  setFilterOrderDateStart(''); 
+                  setFilterOrderDateEnd(''); 
+                }}
                 className="text-blue-600 hover:text-blue-800 mx-1">清除所有过滤</button>
             </p>
             <button 
